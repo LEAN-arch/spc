@@ -1041,49 +1041,81 @@ def plot_wilson(successes, n_samples):
     )
 
     return fig1, fig2
-# Replace the old plot_bayesian function with this one.
+
 def plot_bayesian(prior_type):
-    n_qc, successes_qc = 20, 18; observed_rate = successes_qc / n_qc;
-    if prior_type == "Strong R&D Prior": prior_alpha, prior_beta = 490, 10
-    elif prior_type == "Skeptical/Regulatory Prior": prior_alpha, prior_beta = 10, 10
-    else: prior_alpha, prior_beta = 1, 1
+    # --- Data and Prior Definition ---
+    n_qc, successes_qc = 20, 18
+    observed_rate = successes_qc / n_qc
     
-    p_range = np.linspace(0.6, 1.0, 500)
-    # Calculate Prior
+    if prior_type == "Strong R&D Prior":
+        prior_alpha, prior_beta = 490, 10 # Corresponds to 490 successes in 500 trials
+    elif prior_type == "Skeptical/Regulatory Prior":
+        prior_alpha, prior_beta = 10, 10 # Prefers a fair coin, requires strong evidence to move
+    else: # "No Prior (Frequentist)"
+        prior_alpha, prior_beta = 1, 1 # A flat, uninformative prior
+    
+    p_range = np.linspace(0.6, 1.0, 501)
+    
+    # --- Calculate the Three Distributions ---
+    # 1. Prior Distribution
     prior_dist = beta.pdf(p_range, prior_alpha, prior_beta)
     prior_mean = prior_alpha / (prior_alpha + prior_beta)
     
-    # Calculate Likelihood
+    # 2. Likelihood Distribution (from new data)
     likelihood = stats.binom.pmf(k=successes_qc, n=n_qc, p=p_range)
     
-    # Calculate Posterior
+    # 3. Posterior Distribution
     posterior_alpha, posterior_beta = prior_alpha + successes_qc, prior_beta + (n_qc - successes_qc)
     posterior_dist = beta.pdf(p_range, posterior_alpha, posterior_beta)
     posterior_mean = posterior_alpha / (posterior_alpha + posterior_beta)
     
-    # Create Plot
+    # --- Create the World-Class Plot ---
     fig = go.Figure()
     
-    # Normalize for visualization
-    max_y = np.max(posterior_dist)
+    # Normalize for clean visualization
+    max_y = np.max(posterior_dist) * 1.1
     
-    # Plot Likelihood
-    fig.add_trace(go.Scatter(x=p_range, y=likelihood * max_y / np.max(likelihood), mode='lines', name='Likelihood (from QC Data)', line=dict(dash='dot', color='red'), fill='tozeroy', fillcolor='rgba(255,0,0,0.1)'))
+    # Plot Likelihood first (as the evidence)
+    fig.add_trace(go.Scatter(
+        x=p_range, y=likelihood * max_y / np.max(likelihood),
+        mode='lines', name='Likelihood (from QC Data)',
+        line=dict(dash='dot', color='red', width=2),
+        fill='tozeroy', fillcolor='rgba(255, 0, 0, 0.1)',
+        hovertemplate="p=%{x:.3f}<br>Likelihood (scaled)<extra></extra>"
+    ))
     
-    # Plot Prior
-    fig.add_trace(go.Scatter(x=p_range, y=prior_dist, mode='lines', name='Prior Belief', line=dict(dash='dash', color='green')))
+    # Plot Prior second (as the old belief)
+    fig.add_trace(go.Scatter(
+        x=p_range, y=prior_dist,
+        mode='lines', name='Prior Belief',
+        line=dict(dash='dash', color='green', width=3),
+        hovertemplate="p=%{x:.3f}<br>Prior Density: %{y:.2f}<extra></extra>"
+    ))
+    
+    # Plot Posterior last (as the final result)
+    fig.add_trace(go.Scatter(
+        x=p_range, y=posterior_dist,
+        mode='lines', name='Posterior Belief',
+        line=dict(color='blue', width=4),
+        fill='tozeroy', fillcolor='rgba(0, 0, 255, 0.2)',
+        hovertemplate="p=%{x:.3f}<br>Posterior Density: %{y:.2f}<extra></extra>"
+    ))
 
-    # Plot Posterior
-    fig.add_trace(go.Scatter(x=p_range, y=posterior_dist, mode='lines', name='Posterior Belief', line=dict(color='blue', width=4), fill='tozeroy', fillcolor='rgba(0,0,255,0.2)'))
-
-    fig.add_vline(x=posterior_mean, line_dash="solid", line_color="blue", annotation_text=f"Posterior Mean={posterior_mean:.3f}")
+    # Add annotations for the means/peaks to tell the story
+    fig.add_vline(x=prior_mean, line_dash="dash", line_color="green", annotation_text=f"Prior Mean={prior_mean:.3f}")
+    fig.add_vline(x=observed_rate, line_dash="dot", line_color="red", annotation_text=f"Data (MLE)={observed_rate:.3f}")
+    fig.add_vline(x=posterior_mean, line_dash="solid", line_color="blue", annotation_text=f"Posterior Mean={posterior_mean:.3f}", annotation_font=dict(color="blue", size=14))
     
     fig.update_layout(
-        title_text='Bayesian Inference: How Evidence Updates Belief',
-        xaxis_title='Assay Pass Rate (Concordance)', yaxis_title='Probability Density / Scaled Likelihood',
+        title_text='<b>Bayesian Inference: How Evidence Updates Belief</b>',
+        xaxis_title='Assay Pass Rate (Concordance)',
+        yaxis_title='Probability Density / Scaled Likelihood',
         height=600,
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        title_x=0.5
     )
+    
+    return fig, prior_mean, observed_rate, posterior_mean
     
     return fig, prior_mean, observed_rate, posterior_mean
 def plot_ci_concept():
@@ -1575,35 +1607,34 @@ elif "Bayesian Inference" in method_key:
     st.markdown("""
     **Purpose:** To formally combine existing knowledge (the 'Prior') with new experimental data (the 'Likelihood') to arrive at an updated, more robust conclusion (the 'Posterior').
     
-    **Application:** This is the Hero's secret weapon for efficiency. Instead of starting from scratch, the Hero can leverage the vast knowledge from the R&D lab to design smaller, smarter validation studies at the QC site. It answers the question: "Given what we already knew, what does this new data tell us?"
+    **Definition:** Bayesian inference is a statistical framework that treats parameters not as fixed unknown constants, but as random variables about which we can have a belief that is updated as we gather new evidence.
+    
+    **Application:** This is the Hero's secret weapon for efficiency. Instead of starting from scratch, the Hero can leverage the vast knowledge from the R&D lab (the Prior) to design smaller, smarter validation studies at the QC site (the Likelihood). It answers the question: "Given what we already knew, what does this new data tell us now?"
     """)
     prior_type_bayes = st.sidebar.radio("Select Prior Belief:", ("Strong R&D Prior", "No Prior (Frequentist)", "Skeptical/Regulatory Prior"))
     
     col1, col2 = st.columns([0.65, 0.35])
-    
     with col1:
-        # This function is now enhanced for world-class rendering.
         fig, prior_mean, mle, posterior_mean = plot_bayesian(prior_type_bayes)
         st.plotly_chart(fig, use_container_width=True)
-        
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Posterior Mean Rate", value=f"{posterior_mean:.3f}")
-            st.metric(label="💡 Prior Mean Rate", value=f"{prior_mean:.3f}")
-            st.metric(label="💡 Data (MLE)", value=f"{mle:.3f}")
+            st.metric(label="📈 KPI: Posterior Mean Rate", value=f"{posterior_mean:.3f}", help="The final, data-informed belief.")
+            st.metric(label="💡 Prior Mean Rate", value=f"{prior_mean:.3f}", help="The initial belief before seeing the new data.")
+            st.metric(label="💡 Data-only Estimate (MLE)", value=f"{mle:.3f}", help="The evidence from the new data alone.")
             st.markdown("- **Prior (Green):** Our initial belief. A 'Strong' prior is narrow and confident; a 'Skeptical' prior is broad and uncertain.")
-            st.markdown("- **Likelihood (Red):** The evidence provided by the new data, sharply peaked at the observed rate.")
+            st.markdown("- **Likelihood (Red):** The 'voice of the data'—the hard evidence from the new experiment.")
             st.markdown("- **Posterior (Blue):** The final, updated belief. It's a weighted compromise, pulled from the Prior towards the Likelihood.")
-            st.markdown("**The Bottom Line:** The plot now tells a story. Notice how the strong prior isn't swayed much by the new data, while the skeptical prior is almost entirely convinced by it. This is Bayesian updating in action.")
+            st.markdown("- **The 'Holy Shit' Moment:** Switch the sidebar from 'Strong R&D Prior' to 'Skeptical Prior'. Watch how the blue Posterior dramatically shifts. With a strong prior, our belief barely moves despite the new data. With a skeptical prior, the new data almost completely dictates our final belief. This is Bayesian updating in action.")
         with tab2:
             st.markdown("- The **95% credible interval must be entirely above the target** (e.g., 90%).")
             st.markdown("- This approach allows for demonstrating success with smaller sample sizes if a strong, justifiable prior is used.")
         with tab3:
             st.markdown("**Origin:** Based on Bayes' Theorem (18th century), but made practical by modern computational methods.")
             st.markdown("**Mathematical Basis:** The core idea is that the posterior is proportional to the product of the likelihood and the prior.")
-            st.latex("\\text{Posterior} \\propto \\text{Likelihood} \\times \\text{Prior}")
+            st.latex(r"\text{Posterior} \propto \text{Likelihood} \times \text{Prior}")
             st.markdown("For binomial data, we use the Beta-Binomial conjugate model: if the Prior is Beta($\\alpha, \\beta$) and we observe $k$ successes in $n$ trials, the Posterior is Beta($\\alpha + k, \\beta + n - k$).")
             
 elif "Confidence Interval Concept" in method_key:
