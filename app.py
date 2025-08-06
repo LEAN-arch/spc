@@ -32,9 +32,8 @@ st.markdown("""
 # HELPER & PLOTTING FUNCTIONS
 # ==============================================================================
 # All plotting and helper functions are defined here.
-
 def plot_v_model():
-    """Generates an interactive V&V Model diagram using Plotly, applicable to multiple tech transfer types."""
+    """Generates a professional, interactive V&V Model diagram using Plotly."""
     fig = go.Figure()
 
     # Define the nodes, their positions, and detailed, universally applicable information
@@ -62,23 +61,31 @@ def plot_v_model():
         hoverinfo='none'
     ))
 
-    # Add nodes and annotations
+    # Add nodes as shapes for a cleaner look
     for i, (key, stage) in enumerate(v_model_stages.items()):
         color = verification_color if i < 3 else validation_color if i > 3 else 'grey'
-        fig.add_trace(go.Scatter(
-            x=[stage['x']], y=[stage['y']],
-            mode='markers',
-            marker=dict(color=color, size=65, line=dict(width=2, color='black')),
-            hoverinfo='text',
-            text=f"<b>{stage['name']}</b><br><br><i>{stage['question']}</i><br><b>Examples / Tools:</b> {stage['tools']}"
-        ))
+        fig.add_shape(
+            type="rect",
+            x0=stage['x'] - 0.4, y0=stage['y'] - 0.25,
+            x1=stage['x'] + 0.4, y1=stage['y'] + 0.25,
+            line=dict(color="black", width=2),
+            fillcolor=color,
+        )
         fig.add_annotation(
             x=stage['x'], y=stage['y'],
             text=f"<b>{stage['name']}</b>",
             showarrow=False,
-            font=dict(color='white', size=10)
+            font=dict(color='white', size=11)
         )
-    
+        # Add a transparent scatter marker on top for the hover tooltip
+        fig.add_trace(go.Scatter(
+            x=[stage['x']], y=[stage['y']],
+            mode='markers',
+            marker=dict(color='rgba(0,0,0,0)', size=60),
+            hoverinfo='text',
+            text=f"<b>{stage['name']}</b><br><br><i>{stage['question']}</i><br><b>Examples / Tools:</b> {stage['tools']}"
+        ))
+
     # Add horizontal verification/validation lines
     for i in range(3):
         start_key = path_keys[i]
@@ -119,25 +126,6 @@ def wilson_score_interval(p_hat, n, z=1.96):
     term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n; term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2))); return (term1 - term2) / denom, (term1 + term2) / denom
 
 # ... (All 15 plotting functions are here, fully implemented and enhanced for quality)
-st.divider()
-
-# --- V&V Model and Narrative Introduction ---
-st.header("The V&V Model: The Strategic Map for Technology Transfer")
-st.markdown("""
-The **Verification & Validation (V&V) Model**, shown below, is the universally accepted strategic framework for any technology transfer, whether it's an **assay, instrument, process, or software**. It provides the logical roadmap to ensure success and prevent costly failures late in the project.
-
-- **The Left Side (Verification - "Are we building it right?"):** This is the journey *down* into the details. We start with a high-level need and progressively break it down into testable specifications, verifying our design choices and configurations at each step. This is about building a solid foundation.
-- **The Right Side (Validation - "Did we build the right thing?"):** This is the journey *up* to prove success. We take the implemented system and test it at progressively higher levels, validating that it meets the original user and business needs in its operational environment.
-
-The tools in this toolkit are the specific statistical methods you use to generate the objective evidence required to conquer each stage of this map. **Hover over a stage in the diagram to learn more.**
-""")
-
-# --- Interactive V&V Model Dashboard ---
-fig_v_model, v_model_stages = plot_v_model()
-st.plotly_chart(fig_v_model, use_container_width=True)
-
-st.divider()
-
 
 def plot_gage_rr():
     # --- Data Generation ---
@@ -1316,6 +1304,22 @@ act1, act2, act3 = st.columns(3)
 with act1: st.subheader("Act I: Know Thyself (The Foundation)"); st.markdown("Before the battle, the Hero must understand their own strengths and weaknesses. What is the true capability of their measurement system? What are its limits? This is the foundational work of **Characterization and Validation**.")
 with act2: st.subheader("Act II: The Transfer (The Crucible)"); st.markdown("The Hero's validated method must now survive in a new land—the receiving QC lab. This is the ultimate test of **Robustness, Stability, and Comparability**. It is here that many battles with Variation are won or lost.")
 with act3: st.subheader("Act III: The Guardian (Beyond the Transfer)"); st.markdown("The assay is live, but the Villain never sleeps. The Hero must now become a guardian, using advanced tools to **Monitor, Predict, and Protect** the process for its entire lifecycle, anticipating problems before they arise.")
+
+
+# --- V&V Model and Narrative Introduction ---
+st.subheader("The V&V Model: The Hero's Map")
+st.markdown("""
+The **Verification & Validation (V&V) Model**, shown below, is the universally accepted strategic framework that serves as the map for our Hero's journey. It applies to any technology transfer, whether it's an **assay, instrument, process, or software**.
+
+- **The Left Side (Verification - "Are we building it right?"):** This is the journey *down* into the details, building a solid foundation.
+- **The Right Side (Validation - "Did we build the right thing?"):** This is the journey *up* to prove that the system meets the original needs.
+
+The tools in this toolkit are the specific steps you take to conquer each stage of this map. **Hover over a stage in the diagram to learn more.**
+""")
+
+fig_v_model, v_model_stages = plot_v_model()
+st.plotly_chart(fig_v_model, use_container_width=True)
+
 st.divider()
 
 # --- Sidebar Controls ---
