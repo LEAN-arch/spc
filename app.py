@@ -1119,13 +1119,85 @@ def plot_bayesian(prior_type):
     
     return fig, prior_mean, observed_rate, posterior_mean
 def plot_ci_concept():
-    np.random.seed(123); pop_mean, pop_std, n = 100, 15, 30; n_sims = 100; capture_count = 0; fig = go.Figure()
-    for i in range(n_sims):
-        sample = np.random.normal(pop_mean, pop_std, n); sample_mean = np.mean(sample); margin_of_error = 1.96 * (pop_std / np.sqrt(n)); ci_lower, ci_upper = sample_mean - margin_of_error, sample_mean + margin_of_error; color = 'cornflowerblue' if ci_lower <= pop_mean <= ci_upper else 'red';
-        if color == 'cornflowerblue': capture_count += 1
-        fig.add_trace(go.Scatter(x=[ci_lower, ci_upper], y=[i, i], mode='lines', line=dict(color=color, width=3), hoverinfo='none')); fig.add_trace(go.Scatter(x=[sample_mean], y=[i], mode='markers', marker=dict(color='black', size=5), hoverinfo='none'))
-    fig.add_vline(x=pop_mean, line_dash="dash", line_color="black", annotation_text=f"True Mean={pop_mean}"); fig.update_layout(title_text=f'Conceptual Simulation of 100 95% Confidence Intervals', xaxis_title='Value', yaxis_title='Simulation Run', showlegend=False, height=700); return fig, capture_count, n_sims
+    # --- Data Generation ---
+    np.random.seed(123)
+    pop_mean, pop_std, n = 100, 15, 30
+    n_sims = 100
+    
+    # Generate population for visualization
+    population = np.random.normal(pop_mean, pop_std, 10000)
+    
+    # Generate many sample means for the sampling distribution
+    sample_means = [np.mean(np.random.normal(pop_mean, pop_std, n)) for _ in range(1000)]
+    
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=("<b>The Theoretical Universe: Population vs. Sampling Distribution</b>", "<b>The Practical Result: 100 Simulated Confidence Intervals</b>"),
+        vertical_spacing=0.15
+    )
+    
+    # --- Plot 1: Distributions ---
+    # Population Distribution
+    fig.add_trace(go.Histogram(
+        x=population, histnorm='probability density', name='True Population',
+        marker_color='skyblue', opacity=0.6
+    ), row=1, col=1)
+    # Sampling Distribution of the Mean
+    fig.add_trace(go.Histogram(
+        x=sample_means, histnorm='probability density', name='Distribution of Sample Means',
+        marker_color='darkorange', opacity=0.6
+    ), row=1, col=1)
+    fig.add_vline(x=pop_mean, line_dash="dash", line_color="black", annotation_text=f"True Mean={pop_mean}", row=1, col=1)
 
+    # --- Plot 2: Confidence Interval Simulation ---
+    capture_count = 0
+    for i in range(n_sims):
+        sample = np.random.normal(pop_mean, pop_std, n)
+        sample_mean = np.mean(sample)
+        # Using known pop_std for simplicity in this conceptual plot
+        margin_of_error = 1.96 * (pop_std / np.sqrt(n))
+        ci_lower, ci_upper = sample_mean - margin_of_error, sample_mean + margin_of_error
+        
+        color = 'cornflowerblue' if ci_lower <= pop_mean <= ci_upper else 'red'
+        if color == 'cornflowerblue':
+            capture_count += 1
+        
+        status = "Capture" if color == 'cornflowerblue' else "Miss"
+        
+        fig.add_trace(go.Scatter(
+            x=[ci_lower, ci_upper], y=[i, i], mode='lines',
+            line=dict(color=color, width=3),
+            hovertemplate=f"<b>Run {i+1}</b><br>Status: {status}<br>Interval: [{ci_lower:.2f}, {ci_upper:.2f}]<extra></extra>"
+        ), row=2, col=1)
+        
+        fig.add_trace(go.Scatter(
+            x=[sample_mean], y=[i], mode='markers',
+            marker=dict(color='black', size=5, symbol='line-ns-open'),
+            hovertemplate=f"<b>Run {i+1}</b><br>Sample Mean: {sample_mean:.2f}<extra></extra>"
+        ), row=2, col=1)
+    
+    fig.add_vline(x=pop_mean, line_dash="dash", line_color="black", annotation_text=f"True Mean={pop_mean}", row=2, col=1)
+    
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>The Confidence Interval Concept: From Theory to Practice</b>',
+        height=900,
+        showlegend=False,
+        barmode='overlay'
+    )
+    fig.update_yaxes(title_text="Density", row=1, col=1)
+    fig.update_yaxes(title_text="Simulation Run", range=[-2, n_sims+2], row=2, col=1)
+    fig.update_xaxes(title_text="Value", row=2, col=1)
+    
+    # Return two separate figures for individual plotting in the main app
+    fig1 = go.Figure(data=fig.data[0:3])
+    fig1.update_layout(title_text="<b>The Theoretical Universe: Population vs. Sampling Distribution</b>", yaxis_title="Density", xaxis_title="Value", showlegend=True, barmode='overlay')
+    
+    fig2 = go.Figure(data=fig.data[3:])
+    fig2.update_layout(title_text="<b>The Practical Result: 100 Simulated Confidence Intervals</b>", yaxis_title="Simulation Run", xaxis_title="Value", showlegend=False, yaxis_range=[-2, n_sims+2])
+    
+    return fig1, fig2, capture_count, n_sims
 
 # ==============================================================================
 # MAIN APP LAYOUT
@@ -1638,17 +1710,34 @@ elif "Bayesian Inference" in method_key:
             st.markdown("For binomial data, we use the Beta-Binomial conjugate model: if the Prior is Beta($\\alpha, \\beta$) and we observe $k$ successes in $n$ trials, the Posterior is Beta($\\alpha + k, \\beta + n - k$).")
             
 elif "Confidence Interval Concept" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals. **Application:** This is a foundational concept that underpins many of the statistical tests used in validation and quality control.")
+    st.markdown("""
+    **Purpose:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals.
+    
+    **Definition:** A confidence interval (CI) is a range of estimates for an unknown population parameter, calculated from sample data. It quantifies the uncertainty associated with a sample estimate.
+    
+    **Application:** This is a foundational concept that underpins many of the statistical tests used in validation and quality control. Our Hero must understand the nature of uncertainty. This simulation reveals the "magic" behind the statistics: we can take a small, random sample from a vast, unknown population and make a remarkably reliable statement about the true average of that entire population. Understanding this concept correctly is crucial for making sound, data-driven decisions.
+    """)
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: fig, capture_count, n_sims = plot_ci_concept(); st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig1_ci, fig2_ci, capture_count, n_sims = plot_ci_concept()
+        st.plotly_chart(fig1_ci, use_container_width=True)
+        st.plotly_chart(fig2_ci, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
-        tab1, tab2, tab3 = st.tabs(["💡 The Golden Rule", "✅ Application", "📖 Method Theory"])
+        tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ The Golden Rule", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Empirical Coverage", value=f"{(capture_count/n_sims):.0%}")
-            st.markdown("A **95% confidence interval** means that if we were to repeat our experiment many times, **95% of the calculated intervals would contain the true, unknown parameter**. The confidence is in the *procedure*, not in any single interval.")
+            st.metric(label="📈 KPI: Empirical Coverage", value=f"{(capture_count/n_sims):.0%}", help="The % of simulated CIs that captured the true mean.")
+            st.markdown("- **Sampling Distribution (Top Plot):** This shows the 'universe' of our data. The wide blue curve is the true population. The narrower orange curve is the distribution of *many sample means*. This is the Central Limit Theorem in action.")
+            st.markdown("- **CI Simulation (Bottom Plot):** We take 100 random samples from the population and calculate a 95% confidence interval for each one. The black dot is the sample mean, and the line is the interval.")
+            st.markdown("- **Blue intervals** successfully 'capture' the true population mean (the vertical black line). **Red intervals** miss it purely due to random sampling luck.")
+            st.markdown("**The Bottom Line:** Notice that the *intervals* vary with each sample, but the true mean is fixed. The confidence is in the long-run performance of the method, not in any single interval.")
         with tab2:
-            st.markdown("- This is a teaching module, not a validation step. The 'acceptance rule' is to **correctly interpret the CI** in reports and discussions.")
+            st.markdown("This is a teaching module, not a validation step. The 'acceptance rule' is to **correctly interpret the CI** in all reports and discussions:")
+            st.error("🔴 **Incorrect:** 'There is a 95% probability that the true mean is in this interval.'")
+            st.success("🟢 **Correct:** 'We are 95% confident that this interval contains the true mean.' This is shorthand for: 'This interval was constructed using a procedure that, in the long run, captures the true mean 95% of the time.'")
         with tab3:
-            st.markdown("**Origin:** Introduced by Jerzy Neyman in the 1930s."); st.markdown("**Mathematical Basis:** $ \\text{CI} = \\text{Point Estimate} \\pm (\\text{Critical Value}) \\times (\\text{Standard Error}) $. For the mean with unknown $\\sigma$: $ \\bar{x} \\pm t_{\\alpha/2, n-1} \\frac{s}{\\sqrt{n}} $.")
+            st.markdown("**Origin:** The concept of confidence intervals was introduced by Polish mathematician Jerzy Neyman in the 1930s.")
+            st.markdown("**Mathematical Basis:** The general form is:")
+            st.latex(r"\text{CI} = \text{Point Estimate} \pm (\text{Critical Value}) \times (\text{Standard Error})")
+            st.markdown("For the mean with an unknown population standard deviation (the most common case), this becomes:")
+            st.latex(r"\bar{x} \pm t_{\alpha/2, n-1} \frac{s}{\sqrt{n}}")
