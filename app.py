@@ -1290,15 +1290,15 @@ def plot_ci_concept(n=30):
 # ==============================================================================
 # MAIN APP LAYOUT
 # ==============================================================================
-st.title("🔬 An Interactive Guide to Technology Transfer Using Statistics, and ML Tools")
-st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
+st.title("🔬 An Interactive Guide to V&V, Tech Transfer and Lifecycle Management Using tools from Statistics, and ML")
+st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that help support a robust V&V, tech transfer, and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
 st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics, Machine Learning, and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
 
 st.header("The Scientist's/Engineer's Journey: A Three-Act Story")
-st.markdown("""In the world of quality and development, our story always has the same **Hero**: the dedicated scientist, engineer, or analyst. And it always has the same **Villain**: insidious, hidden, and costly **Variation**.
+st.markdown("""In the world of quality and development, during v&v, and tech transfer, our story always has the same **Hero**: the dedicated scientist, engineer, or analyst. And it always has the same **Villain**: insidious, hidden, and costly **Variation**.
 This toolkit is structured as a three-act journey to empower you to conquer the villain. Each method is a tool, a weapon, or a new sense to perceive and control the variation affecting your processes.""")
 act1, act2, act3 = st.columns(3)
 with act1: st.subheader("Act I: Know Thyself (The Foundation)"); st.markdown("Before the battle, the Hero must understand their own strengths and weaknesses. What is the true capability of their measurement system? What are its limits? This is the foundational work of **Characterization and Validation**.")
