@@ -207,9 +207,8 @@ def plot_shewhart():
     UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est
     UCL_MR = mr_mean * 3.267
     
-    # Identify in-control and out-of-control points
+    # Identify out-of-control points
     out_of_control_I_idx = np.where((data > UCL_I) | (data < LCL_I))[0]
-    in_control_I_idx = np.setdiff1d(np.arange(len(data)), out_of_control_I_idx)
 
     # --- Figure Creation ---
     fig = make_subplots(
@@ -228,25 +227,26 @@ def plot_shewhart():
     fig.add_hline(y=UCL_I, line=dict(color='red'), annotation_text=f"UCL={UCL_I:.1f}", row=1, col=1)
     fig.add_hline(y=LCL_I, line=dict(color='red'), annotation_text=f"LCL={LCL_I:.1f}", row=1, col=1)
 
-    # Plot In-Control Data
+    # Plot the SINGLE, CONTINUOUS line for the process data
     fig.add_trace(go.Scatter(
-        x=x[in_control_I_idx], y=data[in_control_I_idx], 
-        mode='lines+markers', name='In Control',
+        x=x, y=data, 
+        mode='lines+markers', name='Control Value',
         line=dict(color='royalblue'),
-        hovertemplate="Run %{x}<br>Value: %{y:.2f}<br>Status: In Control<extra></extra>"
+        marker=dict(color='royalblue', size=6),
+        hovertemplate="Run %{x}<br>Value: %{y:.2f}<extra></extra>"
     ), row=1, col=1)
 
-    # Plot Out-of-Control Data
+    # Add ONLY the out-of-control markers on top
     fig.add_trace(go.Scatter(
         x=x[out_of_control_I_idx], y=data[out_of_control_I_idx], 
-        mode='markers', name='Out of Control',
-        marker=dict(color='red', size=12, symbol='x-thin', line=dict(width=2)),
-        hovertemplate="Run %{x}<br>Value: %{y:.2f}<br>Status: Out of Control<extra></extra>"
+        mode='markers', name='Out of Control Signal',
+        marker=dict(color='red', size=12, symbol='x-thin', line=dict(width=3)),
+        hovertemplate="<b>VIOLATION</b><br>Run %{x}<br>Value: %{y:.2f}<extra></extra>"
     ), row=1, col=1)
     
     # Add annotations for violations
     for idx in out_of_control_I_idx:
-        fig.add_annotation(x=x[idx], y=data[idx], text="Rule 1 Violation", showarrow=True, arrowhead=2, ax=20, ay=-40, row=1, col=1)
+        fig.add_annotation(x=x[idx], y=data[idx], text="Rule 1 Violation", showarrow=True, arrowhead=2, ax=20, ay=-40, row=1, col=1, font=dict(color="red"))
         
     # Highlight the process shift event
     fig.add_vrect(x0=15.5, x1=25.5, fillcolor="rgba(255,165,0,0.2)", layer="below", line_width=0, 
@@ -552,7 +552,7 @@ elif "Process Stability" in method_key:
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
             st.metric(label="📈 KPI: Process Stability", value="Signal Detected", delta="Action Required", delta_color="inverse")
-            st.markdown("- **I-Chart (top):** Monitors the process center (accuracy). The shaded zones represent the 1, 2, and 3-sigma limits. Points colored red and marked with an 'X' are out-of-control signals.")
+            st.markdown("- **I-Chart (top):** Monitors the process center (accuracy). The single blue line shows the continuous process. Points marked with a red 'X' are out-of-control signals.")
             st.markdown("- **MR-Chart (bottom):** Monitors the short-term, run-to-run variability (precision). An out-of-control signal here would indicate the process has become inconsistent.")
             st.markdown("**The Bottom Line:** These charts are the heartbeat of your process. This chart shows a stable heartbeat for the first 15 runs, after which a new reagent lot caused a special cause variation, driving the process out of control. This must be fixed before proceeding.")
         with tab2:
