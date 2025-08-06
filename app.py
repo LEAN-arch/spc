@@ -1536,7 +1536,7 @@ elif "Process Stability" in method_key:
         with tab2:
             st.markdown("- A process is considered stable and ready for the next validation step only when **at least 20-25 consecutive points on both the I-chart and MR-chart show no out-of-control signals** according to the chosen rule set (e.g., Nelson, Westgard).")
         with tab3:
-            st.markdown("**Origin:** Developed by Walter A. Shewhart at Bell Labs in the 1920s, these charts are the foundation of modern Statistical Process Control (SPC).")
+            st.markdown("**Origin:** Developed by Walter A. Shewhart at Bell Labs in the 1920s, these charts are the foundation of modern Statistical Process Control (SPC). Shewhart's breakthrough was recognizing that industrial processes contain two types of variation: common cause (the natural, inherent "noise" of a stable process) and special cause (unexpected, external events). The purpose of a Shewhart chart is not to eliminate all variation, but to provide a clear, statistical signal to distinguish between these two types, allowing engineers and scientists to focus their efforts on fixing real problems (special causes) instead of chasing random noise.")
             st.markdown("**Mathematical Basis:** The key is estimating the process standard deviation ($\hat{\sigma}$) from the average moving range ($\overline{MR}$).")
             st.latex(r"\hat{\sigma} = \frac{\overline{MR}}{d_2}")
             st.markdown("Where $d_2$ is a control chart constant (1.128 for a moving range of size 2).")
