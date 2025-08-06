@@ -29,10 +29,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# HELPER & PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
+# HELPER & GRAPHICS GENERATION FUNCTIONS
 # ==============================================================================
-# All 15 plotting functions are included here, fully implemented and enhanced.
-
 @st.cache_data
 def create_conceptual_map_plotly():
     nodes = { 'DS': ('Data Science', 0, 3.5), 'BS': ('Biostatistics', 0, 2.5), 'ST': ('Statistics', 0, 1.5), 'IE': ('Industrial Engineering', 0, 0.5), 'SI': ('Statistical Inference', 1, 2.5), 'SPC': ('SPC', 1, 0.5), 'CC': ('Control Charts', 2, 0), 'PC': ('Process Capability', 2, 1), 'WR': ('Westgard Rules', 2, 2), 'NR': ('Nelson Rules', 2, 3), 'HT': ('Hypothesis Testing', 2, 4), 'CI': ('Confidence Intervals', 2, 5), 'BAY': ('Bayesian Statistics', 2, 6), 'SWH': ('Shewhart Charts', 3, -0.5), 'EWM': ('EWMA', 3, 0), 'CSM': ('CUSUM', 3, 0.5), 'MQA': ('Manufacturing QA', 3, 1.5), 'CL': ('Clinical Labs', 3, 2.5), 'TAV': ('T-tests / ANOVA', 3, 3.5), 'ZME': ('Z-score / Margin of Error', 3, 4.5), 'WS': ('Wilson Score', 3, 5.5), 'PP': ('Posterior Probabilities', 3, 6.5), 'PE': ('Proportion Estimates', 4, 6.0) }
@@ -44,7 +42,11 @@ def create_conceptual_map_plotly():
     fig.update_layout(title_text='Hierarchical Map of Statistical Concepts', showlegend=False, xaxis=dict(showgrid=False, zeroline=False, showticklabels=False), yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 7.5]), height=700, margin=dict(l=20, r=20, t=40, b=20), plot_bgcolor='#FFFFFF', paper_bgcolor='#f0f2f6')
     return fig
 
-# ... (All 15 plotting functions are here, fully implemented and enhanced for quality)
+def wilson_score_interval(p_hat, n, z=1.96):
+    if n == 0: return (0, 1)
+    term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n; term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2))); return (term1 - term2) / denom, (term1 + term2) / denom
+
+# ... (All 15 plotting functions are here, fully implemented and enhanced) ...
 def plot_gage_rr():
     np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
     for op_idx, operator in enumerate(['Alice', 'Bob', 'Charlie']):
@@ -106,16 +108,13 @@ def plot_capability(scenario):
     elif scenario == 'Shifted': data = np.random.normal(105, (USL-LSL)/(6*1.67), 200)
     elif scenario == 'Variable': data = np.random.normal(100, (USL-LSL)/(6*0.9), 200)
     else: data = np.concatenate([np.random.normal(97, 2, 100), np.random.normal(103, 2, 100)])
-    
     sigma_hat = np.std(data, ddof=1); Cpu = (USL - data.mean()) / (3 * sigma_hat); Cpl = (data.mean() - LSL) / (3 * sigma_hat); Cpk = np.min([Cpu, Cpl])
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("Process Control (I-Chart)", "Process Capability (Histogram)"), vertical_spacing=0.1, row_heights=[0.4, 0.6])
-    # I-Chart part
     x_axis = np.arange(1, len(data) + 1); mean_i = data.mean(); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr); UCL_I, LCL_I = mean_i + 3*(mr_mean/1.128), mean_i - 3*(mr_mean/1.128);
     fig.add_trace(go.Scatter(x=x_axis, y=data, mode='lines', line=dict(color='lightgrey'), name='Control Value'), row=1, col=1)
     out_of_control_idx = np.where((data > UCL_I) | (data < LCL_I))[0]
     fig.add_trace(go.Scatter(x=x_axis[out_of_control_idx], y=data[out_of_control_idx], mode='markers', marker=dict(color='red', size=8), name='Signal'), row=1, col=1)
     fig.add_hline(y=mean_i, line_dash="dash", line_color="black", row=1, col=1); fig.add_hline(y=UCL_I, line_color="red", row=1, col=1); fig.add_hline(y=LCL_I, line_color="red", row=1, col=1);
-    # Histogram part
     fig_hist = px.histogram(data, nbins=30, histnorm='probability density'); fig.add_trace(fig_hist.data[0], row=2, col=1)
     fig.add_vline(x=LSL, line_dash="dash", line_color="red", annotation_text="LSL", row=2, col=1); fig.add_vline(x=USL, line_dash="dash", line_color="red", annotation_text="USL", row=2, col=1); fig.add_vline(x=data.mean(), line_dash="dot", line_color="black", annotation_text="Mean", row=2, col=1)
     color = "darkgreen" if Cpk >= 1.33 and scenario != 'Out of Control' else "darkred"; text = f"Cpk = {Cpk:.2f}" if scenario != 'Out of Control' else "Cpk: INVALID"
@@ -185,81 +184,74 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 st.header(method_key)
 
 # --- Dynamic Content Display ---
-# All 15 elif blocks follow, each with the full, detailed content.
+# All 15 elif blocks follow, each with the full, detailed content and professional layout.
 
 if "Gage R&R" in method_key:
     # ... (Content for this method)
-    st.markdown("**Objective:** Before evaluating a process, you must first validate the measurement system. A Gage R&R study quantifies the inherent variability (error) of the assay, partitioning it into components like repeatability and reproducibility.")
+    st.markdown("**Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. **Application:** This is the first gate in an assay transfer; you cannot validate a process with an unreliable measurement system.")
     col1, col2 = st.columns([0.65, 0.35]);
     with col1: fig, pct_rr, pct_part = plot_gage_rr(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="% Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse")
-            st.metric(label="% Part-to-Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
-            st.markdown("- **Repeatability:** Inherent precision of the instrument/assay.")
-            st.markdown("- **Reproducibility:** Variation between different operators.")
+            st.metric(label="📈 KPI: % Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse"); st.metric(label="💡 KPI: % Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
+            st.markdown("- **Repeatability:** Inherent precision of the instrument/assay."); st.markdown("- **Reproducibility:** Variation between different operators.")
         with tab2:
-            st.markdown("Based on AIAG (Automotive Industry Action Group) guidelines:")
-            st.markdown("- **< 10%:** System is **acceptable**.")
-            st.markdown("- **10% - 30%:** **Conditionally acceptable**.")
-            st.markdown("- **> 30%:** System is **unacceptable**.")
+            st.markdown("Based on AIAG (Automotive Industry Action Group) guidelines:"); st.markdown("- **< 10%:** System is **acceptable**."); st.markdown("- **10% - 30%:** **Conditionally acceptable**."); st.markdown("- **> 30%:** System is **unacceptable**.")
         with tab3:
-            st.markdown("**Origin:** Formalized by the AIAG. ANOVA is the preferred method.")
-            st.markdown("**Mathematical Basis:** ANOVA partitions total variance ($SS_T$) into components: $SS_T = SS_{Part} + SS_{Operator} + ...$. From this, we derive variance components for repeatability ($\hat{\sigma}^2_{EV}$) and reproducibility ($\hat{\sigma}^2_{AV}$) to calculate $\%R\&R = 100 \times (\hat{\sigma}_{R\&R} / \hat{\sigma}_{Total})$.")
+            st.markdown("**Origin:** Formalized by the AIAG. ANOVA is the preferred method."); st.markdown("**Mathematical Basis:** ANOVA partitions total variance ($SS_T$) into components: $SS_T = SS_{Part} + SS_{Operator} + ...$. From this, we derive variance components for repeatability ($\hat{\sigma}^2_{EV}$) and reproducibility ($\hat{\sigma}^2_{AV}$) to calculate $\%R\&R = 100 \times (\hat{\sigma}_{R\&R} / \hat{\sigma}_{Total})$.")
 
 elif "Linearity and Range" in method_key:
     # ... (Content for this method)
-    st.markdown("**Objective:** To verify the assay's ability to provide results that are directly proportional to the analyte concentration across a specified range, thereby defining its reportable limits.")
+    st.markdown("**Purpose:** To verify the assay's ability to provide results that are directly proportional to the analyte concentration across a specified range. **Application:** This study establishes the validated 'reportable range' of the assay.")
     col1, col2 = st.columns([0.65, 0.35])
     with col1: fig, model = plot_linearity(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="R-squared (R²)", value=f"{model.rsquared:.4f}"); st.metric(label="Slope", value=f"{model.params[1]:.3f}"); st.metric(label="Y-Intercept", value=f"{model.params[0]:.2f}")
+            st.metric(label="📈 KPI: R-squared (R²)", value=f"{model.rsquared:.4f}"); st.metric(label="💡 Metric: Slope", value=f"{model.params[1]:.3f}"); st.metric(label="💡 Metric: Y-Intercept", value=f"{model.params[0]:.2f}")
             st.markdown("- **Residual Plot:** The random scatter of points confirms the linear model is appropriate.")
         with tab2:
-            st.markdown("- **R² > 0.995** is typically required."); st.markdown("- **Slope** should be within **0.95 - 1.05**."); st.markdown("- The **95% CI for the Intercept** should contain **0**.")
+            st.markdown("- **R² > 0.995** is typically required."); st.markdown("- **Slope** should be close to 1.0 (e.g., within **0.95 - 1.05**)."); st.markdown("- The **95% CI for the Intercept** should contain **0**.")
         with tab3:
-            st.markdown("**Origin:** Based on Ordinary Least Squares (OLS) regression (Legendre & Gauss, early 1800s).")
-            st.markdown("**Mathematical Basis:** We fit the model $y = \\beta_0 + \\beta_1 x + \\epsilon$ and test the hypotheses $H_0: \\beta_1 = 1$ and $H_0: \\beta_0 = 0$.")
+            st.markdown("**Origin:** Based on Ordinary Least Squares (OLS) regression (Legendre & Gauss, early 1800s)."); st.markdown("**Mathematical Basis:** We fit the model and test the hypotheses $H_0: \\beta_1 = 1$ and $H_0: \\beta_0 = 0$."); st.latex("y = \\beta_0 + \\beta_1 x + \\epsilon")
 
-# ... And so on for all 15 methods, fully implemented.
 elif "LOD & LOQ" in method_key:
-    st.markdown("**Objective:** To determine the lowest concentration at which the assay can reliably detect (LOD) and accurately quantify (LOQ) an analyte, defining the lower limit of its useful range.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To determine the lowest concentration at which the assay can reliably detect (LOD) and accurately quantify (LOQ) an analyte. **Application:** This defines the lower limit of the assay's useful range, critical for impurity testing or low-level biomarker detection.")
     col1, col2 = st.columns([0.65, 0.35]);
     with col1: fig, lod_val, loq_val = plot_lod_loq(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="Limit of Detection (LOD)", value=f"{lod_val:.2f} units"); st.metric(label="Limit of Quantitation (LOQ)", value=f"{loq_val:.2f} units")
+            st.metric(label="📈 KPI: Limit of Quantitation (LOQ)", value=f"{loq_val:.2f} units"); st.metric(label="💡 Metric: Limit of Detection (LOD)", value=f"{lod_val:.2f} units")
             st.markdown("- **LOD:** Answers 'Is the analyte present?'"); st.markdown("- **LOQ:** The lowest point in the reportable range.")
         with tab2:
             st.markdown("- The **LOQ must be ≤ the lowest required concentration** for the assay's intended use.")
         with tab3:
-            st.markdown("**Origin:** Based on International Council for Harmonisation (ICH) Q2(R1) guidelines.")
-            st.markdown("**Mathematical Basis:** Uses the standard deviation of blank samples ($\sigma_{blank}$)."); st.latex("LOD = \\bar{y}_{blank} + 3.3 \\sigma_{blank}"); st.latex("LOQ = \\bar{y}_{blank} + 10 \\sigma_{blank}")
+            st.markdown("**Origin:** Based on International Council for Harmonisation (ICH) Q2(R1) guidelines."); st.markdown("**Mathematical Basis:** Uses the standard deviation of blank samples ($\sigma_{blank}$)."); st.latex("LOD = \\bar{y}_{blank} + 3.3 \\sigma_{blank}"); st.latex("LOQ = \\bar{y}_{blank} + 10 \\sigma_{blank}")
 
 elif "Method Comparison" in method_key:
-    st.markdown("**Objective:** To formally assess the agreement and bias between two methods (e.g., R&D vs. QC lab). This is a cornerstone of transfer, replacing simpler tests with a more powerful analysis across the full measurement range.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To formally assess the agreement and bias between two methods (e.g., R&D vs. QC lab). **Application:** This is a cornerstone of transfer, replacing simpler tests with a more powerful analysis across the full measurement range.")
     col1, col2 = st.columns([0.65, 0.35])
     with col1: fig, slope, intercept, bias, ua, la = plot_method_comparison(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="Deming Slope", value=f"{slope:.3f}", help="Ideal = 1.0. Measures proportional bias."); st.metric(label="Mean Bias (B-A)", value=f"{bias:.2f}", help="Average difference between methods.")
+            st.metric(label="📈 KPI: Mean Bias (B-A)", value=f"{bias:.2f}"); st.metric(label="💡 Metric: Deming Slope", value=f"{slope:.3f}"); st.metric(label="💡 Metric: Deming Intercept", value=f"{intercept:.2f}")
         with tab2:
             st.markdown("- **Deming:** Slope CI should contain 1; Intercept CI should contain 0."); st.markdown(f"- **Bland-Altman:** >95% of points must be within the Limits of Agreement. The LoA width (`{la:.2f}` to `{ua:.2f}`) must be practically acceptable.")
         with tab3:
-            st.markdown("**Origin:** Deming Regression (W. Edwards Deming) is an errors-in-variables model. Bland-Altman plot (1986) assesses agreement.")
-            st.markdown("**Mathematical Basis:** Deming minimizes perpendicular distances to the line. Bland-Altman plots Difference vs. Average; Limits of Agreement are $\\bar{d} \\pm 1.96 \\cdot s_d$.")
+            st.markdown("**Origin:** Deming Regression (W. Edwards Deming); Bland-Altman plot (1986)."); st.markdown("**Mathematical Basis:** Deming minimizes perpendicular distances to the line. Bland-Altman plots Difference vs. Average; Limits of Agreement are $\\bar{d} \\pm 1.96 \\cdot s_d$.")
 
 elif "Assay Robustness" in method_key:
-    st.markdown("**Objective:** To proactively identify which assay parameters (e.g., temperature, pH) have the biggest impact on results and to find the optimal operating region. This is done by deliberately varying parameters in a structured experiment.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To proactively identify which assay parameters (e.g., temperature, pH) have the biggest impact on results and to find the optimal operating region. **Application:** A key part of method development and validation, ensuring the assay performs reliably under minor real-world variations.")
     vis_type = st.radio("Select Visualization:", ["📊 Pareto Plot (Screening)", "📈 2D Contour Plot (Optimization)", "🧊 3D Surface Plot (Visualization)"], horizontal=True)
     fig_pareto, fig_contour, fig_surface = plot_robustness_rsm()
     col1, col2 = st.columns([0.65, 0.35])
@@ -271,30 +263,30 @@ elif "Assay Robustness" in method_key:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.markdown("- **Screening (Pareto):** Identifies the 'vital few' parameters with significant effects.")
-            st.markdown("- **Optimization (Contour/Surface):** Reveals the 'sweet spot' for the assay and visualizes complex interactions.")
+            st.metric(label="📈 KPI: Significant Factors", value="Temp, pH, Temp*pH"); st.markdown("- **Screening (Pareto):** Identifies the 'vital few' parameters with significant effects."); st.markdown("- **Optimization (Contour/Surface):** Reveals the 'sweet spot' for the assay and visualizes complex interactions.")
         with tab2:
-            st.markdown("- The outcome is knowledge for setting control limits. The goal is to define an **operating space** (a region on the contour plot) where the assay is known to be robust and reliable, and to set SOP limits well within this space.")
+            st.markdown("- The outcome is knowledge for setting control limits. The goal is to define an **operating space** where the assay is known to be robust, and to set SOP limits well within this space.")
         with tab3:
-            st.markdown("**Origin:** Design of Experiments (DOE) was pioneered by Sir R.A. Fisher. Response Surface Methodology (RSM) was developed by Box and Wilson.")
-            st.markdown("**Mathematical Basis:** RSM fits a quadratic model to the experimental data: $y = \\beta_0 + \\sum \\beta_i x_i + \\sum \\beta_{ii} x_i^2 + \\sum \\beta_{ij} x_i x_j + \\epsilon$.")
+            st.markdown("**Origin:** Design of Experiments (DOE) by Sir R.A. Fisher; Response Surface Methodology (RSM) by Box and Wilson."); st.markdown("**Mathematical Basis:** RSM fits a quadratic model: $y = \\beta_0 + \\sum \\beta_i x_i + \\sum \\beta_{ii} x_i^2 + \\sum \\beta_{ij} x_i x_j + \\epsilon$.")
 
 elif "Process Stability" in method_key:
-    st.markdown("**Objective:** To demonstrate that the assay can be run in a stable and predictable manner at the receiving site, monitoring both accuracy (mean) and precision (variability).")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To demonstrate that the assay can be run in a stable and predictable manner at the receiving site. **Application:** A process must be stable (in statistical control) before its capability can be assessed. This chart separates common cause from special cause variation.")
     col1, col2 = st.columns([0.65, 0.35]);
     with col1: st.plotly_chart(plot_shewhart(), use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.markdown("- **I-Chart:** Monitors the process center (accuracy)."); st.markdown("- **MR-Chart:** Monitors run-to-run variability (precision).")
+            st.metric(label="📈 KPI: Process Stability", value="Signal Detected", delta="Action Required", delta_color="inverse"); st.markdown("- **I-Chart:** Monitors the process center (accuracy)."); st.markdown("- **MR-Chart:** Monitors run-to-run variability (precision).")
         with tab2:
-            st.markdown("- Process is considered stable when **at least 20-25 consecutive points on both charts show no out-of-control signals**.")
+            st.markdown("- Process is stable when **at least 20-25 consecutive points on both charts show no out-of-control signals**.")
         with tab3:
             st.markdown("**Origin:** Developed by Walter A. Shewhart (1920s)."); st.markdown("**Mathematical Basis:** Estimate $\\hat{\sigma} = \\overline{MR}/d_2$. I-Chart limits are $\\bar{x} \\pm 3\\hat{\sigma}$. MR-Chart UCL is $D_4 \\overline{MR}$.")
 
 elif "Small Shift Detection" in method_key:
-    st.markdown("**Objective:** To implement sensitive charts that can detect small, systematic drifts or shifts in assay performance that a Shewhart chart might miss.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To implement sensitive charts that can detect small, systematic drifts or shifts in assay performance that a Shewhart chart might miss. **Application:** Long-term monitoring of controls to detect gradual reagent degradation or instrument drift.")
     chart_type = st.sidebar.radio("Select Chart Type:", ('EWMA', 'CUSUM')); col1, col2 = st.columns([0.65, 0.35])
     with col1:
         if chart_type == 'EWMA': lmbda = st.sidebar.slider("EWMA Lambda (λ)", 0.05, 1.0, 0.2, 0.05); st.plotly_chart(plot_ewma_cusum(chart_type, lmbda, 0, 0), use_container_width=True)
@@ -303,14 +295,15 @@ elif "Small Shift Detection" in method_key:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.markdown("- **EWMA:** Best for detecting small, gradual *drifts*. The `λ` parameter controls its 'memory'."); st.markdown("- **CUSUM:** The most powerful tool for detecting small, *abrupt and sustained* shifts.")
+            st.metric(label="📈 KPI: Shift Detection", value="Signal Detected", delta="Action Required", delta_color="inverse"); st.markdown("- **EWMA:** Best for detecting small, gradual *drifts*."); st.markdown("- **CUSUM:** Best for detecting small, *abrupt and sustained* shifts.")
         with tab2:
-            st.markdown("- **EWMA Rule:** For long-term monitoring, use a small `λ` (e.g., **0.1 to 0.3**)."); st.markdown("- **CUSUM Rule:** Set the slack `k` to half the magnitude of the shift to detect (e.g., **k=0.5σ** for a 1σ shift).")
+            st.markdown("- **EWMA Rule:** For long-term monitoring, use a small `λ` (e.g., **0.1 to 0.3**)."); st.markdown("- **CUSUM Rule:** Set `k` to half the magnitude of the shift to detect.")
         with tab3:
             st.markdown("**Origin:** EWMA (Roberts, 1959); CUSUM (Page, 1954)."); st.markdown("**Mathematical Basis:** EWMA: $z_i = \\lambda x_i + (1-\\lambda)z_{i-1}$. CUSUM: $SH_i = \\max(0, SH_{i-1} + (x_i - \\mu_0) - k)$.")
 
 elif "Run Validation" in method_key:
-    st.markdown("**Objective:** To create an objective, statistically-driven system for accepting or rejecting each analytical run based on QC sample performance.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To create an objective, statistically-driven system for accepting or rejecting each analytical run based on QC sample performance. **Application:** Routine QC in a regulated environment.")
     st.plotly_chart(plot_multi_rule(), use_container_width=True)
     st.subheader("Standard Industry Rule Sets")
     tab1, tab2, tab3 = st.tabs(["✅ Westgard Rules", "✅ Nelson Rules", "✅ Western Electric Rules"])
@@ -343,7 +336,8 @@ elif "Run Validation" in method_key:
 | **Rule 4** | Eight consecutive points fall on the same side of the mean. |""")
 
 elif "Process Capability" in method_key:
-    st.markdown("**Objective:** To determine if the stable process is capable of consistently producing results that meet specifications, linking SPC to engineering tolerances.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To determine if the stable process is capable of consistently producing results that meet specifications. **Application:** This is often the final gate of a transfer, proving the new site can meet quality targets.")
     scenario = st.sidebar.radio("Select Process Scenario:", ('Ideal', 'Shifted', 'Variable', 'Out of Control'))
     col1, col2 = st.columns([0.65, 0.35])
     with col1: fig, cpk_val, scn = plot_capability(scenario); st.plotly_chart(fig, use_container_width=True)
@@ -351,8 +345,8 @@ elif "Process Capability" in method_key:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="Calculated Cpk", value=f"{cpk_val:.2f}" if scn != 'Out of Control' else "INVALID")
-            st.markdown("- **The Mantra:** Control before Capability. Cpk is only meaningful for a stable, in-control process.")
+            st.metric(label="📈 KPI: Process Capability (Cpk)", value=f"{cpk_val:.2f}" if scn != 'Out of Control' else "INVALID")
+            st.markdown("- **The Mantra:** Control before Capability. Cpk is only meaningful for a stable, in-control process (see I-Chart in the plot).")
             st.markdown("- A process can be in control but not capable (Shifted, Variable), or out of control and therefore not capable.")
         with tab2:
             st.markdown("- `Cpk ≥ 1.33`: Process is **capable**."); st.markdown("- `Cpk ≥ 1.67`: Process is **highly capable**."); st.markdown("- `Cpk < 1.0`: Process is **not capable**.")
@@ -360,45 +354,50 @@ elif "Process Capability" in method_key:
             st.markdown("**Origin:** Developed in manufacturing as part of Six Sigma."); st.markdown("**Mathematical Basis:** $ C_{pk} = \\min \\left( \\frac{USL - \\bar{x}}{3\\hat{\sigma}}, \\frac{\\bar{x} - LSL}{3\\hat{\sigma}} \\right) $.")
 
 elif "Anomaly Detection" in method_key:
-    st.markdown("**Objective:** To leverage machine learning to detect complex, multivariate anomalies that traditional univariate control charts would miss.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To leverage machine learning to detect complex, multivariate anomalies that traditional univariate control charts would miss. **Application:** Proactive, real-time monitoring of complex assays to find novel failure modes.")
     col1, col2 = st.columns([0.65, 0.35])
     with col1: st.plotly_chart(plot_anomaly_detection(), use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.markdown("- This method finds 'unknown unknowns' by learning the normal multi-dimensional shape of the data."); st.markdown("- It can detect when parameters are individually 'in-spec' but their combination is abnormal.")
+            st.metric(label="📈 KPI: Anomalies Detected", value="3"); st.markdown("- This method finds 'unknown unknowns' by learning the normal multi-dimensional shape of the data."); st.markdown("- It can detect when parameters are individually 'in-spec' but their combination is abnormal.")
         with tab2:
             st.markdown("- Any point flagged as an **anomaly must be investigated** by SMEs to determine root cause.")
         with tab3:
             st.markdown("**Origin:** Proposed by Liu, Ting, and Zhou in 2008."); st.markdown("**Mathematical Basis:** Uses random trees to isolate points. The score $ s(x, n) = 2^{-\\frac{E(h(x))}{c(n)}} $ is based on the average path length $E(h(x))$ to isolate a point.")
 
 elif "Predictive QC" in method_key:
-    st.markdown("**Objective:** To move from reactive to proactive quality control by predicting run failure based on in-process parameters *before* the run is completed.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To move from reactive to proactive quality control by predicting run failure based on in-process parameters *before* the run is completed. **Application:** A real-time decision support tool for lab operators.")
     col1, col2 = st.columns([0.65, 0.35])
     with col1: st.plotly_chart(plot_predictive_qc(), use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.markdown("- This model predicts the probability of a run failing based on its initial parameters."); st.markdown("- The color gradient shows the learned 'risk zones'.")
+            st.metric(label="📈 KPI: Predictive Risk Profiling", value="Enabled"); st.markdown("- This model predicts the probability of a run failing based on its initial parameters."); st.markdown("- The color gradient shows the learned 'risk zones'.")
         with tab2:
             st.markdown("- A risk threshold is set, e.g., 'If **P(Fail) > 20%**, flag run for operator review.'")
         with tab3:
             st.markdown("**Origin:** Logistic regression was developed by David Cox in 1958."); st.markdown("**Mathematical Basis:** Models binary outcome probability using the sigmoid function: $ P(y=1|x) = 1 / (1 + e^{-(\\beta_0 + \\beta_1 x_1 + ...)}) $.")
 
 elif "Control Forecasting" in method_key:
-    st.markdown("**Objective:** To forecast the future performance of assay controls to anticipate problems and enable proactive management of maintenance and reagent lots.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To forecast the future performance of assay controls to anticipate problems. **Application:** Proactive scheduling of instrument maintenance or ordering of new reagent lots before performance degrades.")
     fig1_fc, fig2_fc = plot_forecasting()
     st.plotly_chart(fig1_fc, use_container_width=True)
-    with st.expander("Interpretation & Component Analysis"):
-        st.markdown("""- **Forecast Plot:** Shows the expected future path and uncertainty interval of the control.
-        - **Components Plot:** Decomposes the forecast into trend and seasonality for root cause analysis.
-        - **Rule:** A "proactive alert" can be triggered if the **lower bound of the 80% forecast interval is predicted to cross a specification limit** within the forecast horizon.""")
+    with st.expander("Interpretation, Rules & Theory"):
+        st.markdown("""- **📈 KPI: Forecasted Trend.** The components plot below reveals if there is a consistent upward or downward trend over time.
+- **💡 Key Insight:** The forecast shows the expected future path and uncertainty interval of the control. The components plot decomposes this into trend and seasonality for root cause analysis.
+- **✅ Acceptance Rule:** A "proactive alert" can be triggered if the **lower bound of the 80% forecast interval is predicted to cross a specification limit** within the forecast horizon.
+- **📖 Method Theory:** Prophet is an open-source library from Facebook based on a decomposable model: $ y(t) = g(t) + s(t) + h(t) + \\epsilon_t $, with terms for trend, seasonality, and holidays.""")
         st.plotly_chart(fig2_fc, use_container_width=True)
 
 elif "Pass/Fail Analysis" in method_key:
-    st.markdown("**Objective:** To accurately calculate a confidence interval for a proportion, essential for validating qualitative assays (e.g., presence/absence).")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To accurately calculate a confidence interval for a proportion. **Application:** Essential for validating qualitative assays (e.g., presence/absence) where the result is a simple pass or fail.")
     n_samples_wilson = st.sidebar.slider("Number of Validation Samples (n)", 1, 100, 30); successes_wilson = st.sidebar.slider("Concordant Results", 0, n_samples_wilson, int(n_samples_wilson * 0.95))
     col1, col2 = st.columns([0.65, 0.35])
     with col1: st.plotly_chart(plot_wilson(successes_wilson, n_samples_wilson), use_container_width=True)
@@ -406,7 +405,7 @@ elif "Pass/Fail Analysis" in method_key:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="Observed Rate", value=f"{(successes_wilson/n_samples_wilson if n_samples_wilson > 0 else 0):.2%}")
+            st.metric(label="📈 KPI: Observed Rate", value=f"{(successes_wilson/n_samples_wilson if n_samples_wilson > 0 else 0):.2%}")
             st.markdown("- **Wilson & Clopper-Pearson** intervals are robust for small samples."); st.markdown("- The **Wald interval** is unreliable and should be avoided.")
         with tab2:
             st.markdown("- **The lower bound of the 95% Wilson Score CI must be ≥ the target concordance rate** (e.g., 90%).")
@@ -414,7 +413,8 @@ elif "Pass/Fail Analysis" in method_key:
             st.markdown("**Origin:** Wilson Score (1927) and Clopper-Pearson (1934) improve upon the standard Wald interval."); st.markdown("**Mathematical Basis (Wilson):** $ \\frac{1}{1 + z^2/n} \\left( \\hat{p} + \\frac{z^2}{2n} \\pm z \\sqrt{\\frac{\\hat{p}(1-\\hat{p})}{n} + \\frac{z^2}{4n^2}} \\right) $")
 
 elif "Bayesian Inference" in method_key:
-    st.markdown("**Objective:** To formally combine historical data (the 'Prior') with new data (the 'Likelihood') to arrive at a more robust conclusion (the 'Posterior').")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To formally combine historical data (the 'Prior') with new data (the 'Likelihood') to arrive at a more robust conclusion (the 'Posterior'). **Application:** Using extensive R&D data to reduce the required size of a QC validation study.")
     prior_type_bayes = st.sidebar.radio("Select Prior Belief:", ("Strong R&D Prior", "No Prior (Frequentist)", "Skeptical/Regulatory Prior"))
     col1, col2 = st.columns([0.65, 0.35])
     with col1: st.plotly_chart(plot_bayesian(prior_type_bayes), use_container_width=True)
@@ -422,6 +422,7 @@ elif "Bayesian Inference" in method_key:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
+            st.metric(label="📈 KPI: Posterior Belief", value=f"Updated w/ {prior_type_bayes}")
             st.markdown("- **Posterior** (blue line) is the updated belief."); st.markdown("- **Strong Priors** require more data to be swayed.")
         with tab2:
             st.markdown("- The **95% credible interval must be entirely above the target** (e.g., 90%).")
@@ -429,10 +430,17 @@ elif "Bayesian Inference" in method_key:
             st.markdown("**Origin:** Based on Bayes' Theorem (18th century)."); st.markdown("**Mathematical Basis:** $ \\text{Posterior} \\propto \\text{Likelihood} \\times \\text{Prior} $. For this case, the Beta-Binomial conjugate model is used: Posterior is Beta($\\alpha_{prior} + k, \\beta_{prior} + n - k$).")
 
 elif "Confidence Interval Concept" in method_key:
-    st.markdown("**Objective:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals, which underpin many statistical tests.")
+    # ... (Content for this method)
+    st.markdown("**Purpose:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals. **Application:** This is a foundational concept that underpins many of the statistical tests used in validation and quality control.")
     col1, col2 = st.columns([0.65, 0.35])
     with col1: fig, capture_count, n_sims = plot_ci_concept(); st.plotly_chart(fig, use_container_width=True)
     with col2:
-        st.subheader("The Golden Rule")
-        st.metric(label="Capture Rate in Simulation", value=f"{(capture_count/n_sims):.0%}")
-        st.markdown("A **95% confidence interval** means that if we were to repeat our experiment many times, **95% of the calculated intervals would contain the true, unknown parameter**. The confidence is in the *procedure*, not in any single interval.")
+        st.subheader("Analysis & Interpretation")
+        tab1, tab2, tab3 = st.tabs(["💡 The Golden Rule", "✅ Acceptance Rules", "📖 Method Theory"])
+        with tab1:
+            st.metric(label="📈 KPI: Empirical Coverage", value=f"{(capture_count/n_sims):.0%}")
+            st.markdown("A **95% confidence interval** means that if we were to repeat our experiment many times, **95% of the calculated intervals would contain the true, unknown parameter**. The confidence is in the *procedure*, not in any single interval.")
+        with tab2:
+            st.markdown("- This is a teaching module, not a validation step. The 'acceptance rule' is to **correctly interpret the CI** in reports and discussions.")
+        with tab3:
+            st.markdown("**Origin:** Introduced by Jerzy Neyman in the 1930s."); st.markdown("**Mathematical Basis:** $ \\text{CI} = \\text{Point Estimate} \\pm (\\text{Critical Value}) \\times (\\text{Standard Error}) $. For the mean with unknown $\\sigma$: $ \\bar{x} \\pm t_{\\alpha/2, n-1} \\frac{s}{\\sqrt{n}} $.")
