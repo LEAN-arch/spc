@@ -1339,7 +1339,7 @@ if "Gage R&R" in method_key:
     
     **Definition:** A Gage R&R study partitions the total observed variation into two main sources: the variation from the parts being measured and the variation from the measurement system. The measurement system variation is further broken down into **Repeatability** (equipment variation) and **Reproducibility** (operator variation).
     
-    **Application:** This is the first and most critical gate in an assay transfer. You cannot validate a process with an unreliable measurement system. Before our Hero can fight the Villain of Process Variation, they must first prove their own weapon—the assay—is sharp, true, and reliable.
+    **Application:** This is the first and most critical gate in an assay transfer. You cannot validate a process with an unreliable measurement system.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
@@ -1671,7 +1671,7 @@ elif "Small Shift Detection" in method_key:
     - **EWMA (Exponentially Weighted Moving Average):** A chart that gives exponentially decreasing weight to older observations, making it sensitive to small, gradual drifts.
     - **CUSUM (Cumulative Sum):** A chart that accumulates deviations from a target value, making it the most statistically powerful tool for detecting small, abrupt, and sustained shifts.
     
-    **Application:** These are the Hero's early-warning systems. After the initial chaos of transfer is tamed (Act II), the Villain of Variation becomes subtle. It introduces slow instrument drift or a slight bias from a new reagent lot. A Shewhart chart might not notice, but these advanced charts will, allowing the Hero to act *before* a major out-of-spec event occurs.
+    **Application:** These are the Hero's early-warning systems. After the initial chaos of transfer is tamed (Act II), the Villain of Variation becomes subtle. It introduces slow instrument drift or a slight bias from a new reagent lot. A Shewhart chart might not notice, but these advanced charts will, allowing us to act *before* a major out-of-spec event occurs.
     """)
     chart_type = st.sidebar.radio("Select Chart Type:", ('EWMA', 'CUSUM'))
     col1, col2 = st.columns([0.65, 0.35])
@@ -1740,7 +1740,7 @@ elif "Run Validation" in method_key:
     
     **Definition:** Run validation employs a set of statistical rules, applied to a Levey-Jennings chart, to detect deviations from expected performance. These rules are designed to catch both large, random errors and smaller, systematic trends that might indicate a problem.
     
-    **Application:** This is the Hero's daily duty as the Guardian of the process. Each day, the Villain of Variation will try to sneak past the defenses. This multi-rule system is the vigilant gatekeeper that ensures only valid, trustworthy results are released. It is the core of routine QC in any regulated lab environment.
+    **Application:** This is the daily responsibility of the process steward. In any regulated lab environment, variation is a constant pressure that can compromise data integrity if left unchecked. This multi-rule system serves as a vigilant gatekeeper, ensuring that only valid, trustworthy results are released. It forms the backbone of routine quality control, safeguarding the reliability and compliance of analytical outputs.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
@@ -1805,7 +1805,7 @@ elif "Process Capability (Cpk)" in method_key:
     
     **Definition:** Process Capability is a measure of the ability of a process to produce output within the specification limits. The Cpk index is a standard metric that quantifies this ability.
     
-    **Application:** This is often the final, critical gate of a successful assay transfer. After our Hero has proven their assay is reliable (Act I) and stable in the new lab (Act II), they must now provide the ultimate proof: that the process can consistently defeat the Villain of Variation and deliver results that meet the non-negotiable quality targets. A high Cpk is the statistical equivalent of a "mission accomplished."
+    **Application:** This is often the final and most critical gate of a successful assay transfer. After demonstrating that the assay is reliable (Act I) and stable in the receiving lab environment (Act II), the final step is to provide statistical evidence that the process can consistently meet stringent quality targets. A high Cpk (process capability index) serves as the quantitative proof that the method performs within specification—delivering reproducible, trustworthy results under routine conditions. In many ways, it is the statistical equivalent of "mission accomplished."
     """)
     scenario = st.sidebar.radio("Select Process Scenario:", ('Ideal', 'Shifted', 'Variable', 'Out of Control'))
     col1, col2 = st.columns([0.65, 0.35])
@@ -1856,7 +1856,7 @@ elif "Anomaly Detection (ML)" in method_key:
     
     **Definition:** An anomaly is a data point that deviates significantly from the majority of the data. An Isolation Forest is an unsupervised algorithm that identifies these points by learning the 'shape' of normal operating conditions.
     
-    **Application:** This is the Hero's tool for finding the "ghost in the machine." An operator might swear every individual parameter is in spec, but the ML model flags a run as an anomaly because the *combination* of parameters is highly unusual. This is critical for uncovering subtle, novel failure modes that would otherwise go unnoticed.
+    **Application:** This is a critical tool for uncovering the “ghost in the machine.” An operator might confirm that every individual parameter is within specification, yet an ML model can flag a run as anomalous due to an unusual combination of otherwise acceptable inputs. This capability is essential for detecting subtle, emerging failure modes that traditional rule-based systems might overlook—enhancing process awareness and proactive quality control.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
@@ -1906,7 +1906,7 @@ elif "Predictive QC (ML)" in method_key:
     
     **Definition:** A predictive QC model is a machine learning classifier (like Logistic Regression) that learns the relationship between in-process parameters and the final outcome of a run (Pass/Fail).
     
-    **Application:** This is the Hero's crystal ball. Before committing expensive reagents and valuable time, the model can look at the starting conditions of a run (e.g., reagent age, instrument warmup time) and predict its likelihood of success. A high probability of failure can trigger an alert, empowering the operator to take corrective action *before* the run is wasted. This directly reduces waste and improves right-first-time rates.
+    **Application:** This is a predictive decision-support tool designed to reduce waste and improve right-first-time rates. Before committing costly reagents and valuable instrument time, the model evaluates key starting conditions—such as reagent age, instrument warm-up time, and environmental factors—to estimate the likelihood of a successful run. If the model detects a high probability of failure, it can trigger a preemptive alert, enabling the operator to take corrective action before the run proceeds. This proactive approach minimizes rework, conserves resources, and strengthens overall process reliability.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
@@ -1956,7 +1956,7 @@ elif "Control Forecasting (AI)" in method_key:
     
     **Definition:** Time series forecasting is a machine learning technique that analyzes historical, time-ordered data points to detect patterns (like trend and seasonality) and uses them to predict future values.
     
-    **Application:** This is the Hero's ultimate power: seeing the future. By forecasting where a control is heading, the Hero can anticipate problems *before* they occur. This tool can predict that a reagent lot will start to fail in 3 weeks, or that an instrument will need recalibration next month. It transforms maintenance and inventory management from a scheduled chore into an intelligent, data-driven strategy.
+    **Application:** This is a powerful forecasting tool that enables proactive quality and operations management. By predicting the future trajectory of key controls, the system can identify issues before they occur—such as signaling that a reagent lot may begin to fail in three weeks, or that an instrument is likely to require recalibration next month. This transforms maintenance, inventory planning, and quality oversight from reactive or scheduled tasks into intelligent, data-driven strategies—minimizing downtime, reducing risk, and improving operational efficiency.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
@@ -2076,7 +2076,7 @@ elif "Bayesian Inference" in method_key:
     
     **Definition:** Bayesian inference is a statistical framework that treats parameters not as fixed unknown constants, but as random variables about which we can have a belief that is updated as we gather new evidence.
     
-    **Application:** This is the Hero's secret weapon for efficiency. Instead of starting from scratch, the Hero can leverage the vast knowledge from the R&D lab (the Prior) to design smaller, smarter validation studies at the QC site (the Likelihood). It answers the question: "Given what we already knew, what does this new data tell us now?"
+    **Application:** This is a key tool for driving efficient, knowledge-informed validation. Rather than starting from scratch, teams can leverage prior data and insights from R&D (the Prior) to design smaller, more targeted validation studies at the QC site (the Likelihood). This Bayesian approach helps answer a critical question: "Given what we already knew, what does this new data tell us now?" It reduces redundancy, accelerates tech transfer, and ensures that validation efforts are both statistically rigorous and resource-efficient."
     """)
     prior_type_bayes = st.sidebar.radio("Select Prior Belief:", ("Strong R&D Prior", "No Prior (Frequentist)", "Skeptical/Regulatory Prior"))
     
@@ -2131,7 +2131,7 @@ elif "Confidence Interval Concept" in method_key:
     
     **Definition:** A confidence interval (CI) is a range of estimates for an unknown population parameter, calculated from sample data. Its width reflects the uncertainty of the estimate.
     
-    **Application:** This is a foundational concept that underpins many of the statistical tests used in validation and quality control. For the Hero, understanding this is not just academic; it's about resource management. How many samples do I need to run to be confident in my result? This interactive simulation provides a powerful, actionable answer by letting you see the direct trade-off between sample size, cost, and statistical precision.
+    **Application:** This is a foundational concept that underpins many statistical methods used in validation and quality control. Understanding it is not just an academic exercise—it directly impacts resource planning. How many samples are needed to achieve a reliable result? This interactive simulation provides an actionable answer by allowing users to explore the trade-offs between sample size, cost, and statistical precision. It enables data-driven decisions that balance confidence with efficiency.
     """)
     n_slider = st.sidebar.slider("Select Sample Size (n) for Simulation:", 5, 100, 30, 5)
     
