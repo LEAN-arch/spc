@@ -46,69 +46,31 @@ def create_conceptual_map():
     dot.attr('node', shape='circle', style='filled', penwidth='2', fontname='Helvetica', fontsize='12')
     dot.attr('edge', color='gray', arrowhead='normal')
 
-    # Colors based on the legend
-    c_discipline = "#e0f2f1"  # Lightest Green
-    c_domain = "#b2dfdb"      # Medium Green
-    c_subdomain = "#80cbc4"    # Darker Green
-    c_tool = "#4db6ac"        # Teal (A bit lighter than the darkest blue for better text contrast)
+    c_discipline = "#e0f2f1"; c_domain = "#b2dfdb"; c_subdomain = "#80cbc4"; c_tool = "#4db6ac"
 
-    # Level 1: Academic Disciplines
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('DS', 'Data Science', fillcolor=c_discipline)
-        s.node('BS', 'Biostatistics', fillcolor=c_discipline)
-        s.node('ST', 'Statistics', fillcolor=c_discipline)
-        s.node('IE', 'Industrial Engineering', fillcolor=c_discipline)
-
-    # Level 2: Core Domains
+        s.attr(rank='same'); s.node('DS', 'Data Science', fillcolor=c_discipline); s.node('BS', 'Biostatistics', fillcolor=c_discipline); s.node('ST', 'Statistics', fillcolor=c_discipline); s.node('IE', 'Industrial Engineering', fillcolor=c_discipline)
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('SI', 'Statistical Inference', fillcolor=c_domain)
-        s.node('SPC', 'SPC', fillcolor=c_domain)
-
-    # Level 3: Sub-Domains & Concepts
+        s.attr(rank='same'); s.node('SI', 'Statistical Inference', fillcolor=c_domain); s.node('SPC', 'SPC', fillcolor=c_domain)
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('WS', 'Wilson Score', fillcolor=c_subdomain)
-        s.node('BAY', 'Bayesian Statistics', fillcolor=c_subdomain)
-        s.node('CI', 'Confidence Intervals', fillcolor=c_subdomain)
-        s.node('HT', 'Hypothesis Testing', fillcolor=c_subdomain)
-        s.node('NR', 'Nelson Rules', fillcolor=c_subdomain)
-        s.node('WR', 'Westgard Rules', fillcolor=c_subdomain)
-        s.node('PC', 'Process Capability', fillcolor=c_subdomain)
-        s.node('CC', 'Control Charts', fillcolor=c_subdomain)
-
-    # Level 4: Specific Tools & Applications
+        s.attr(rank='same'); s.node('WS', 'Wilson Score', fillcolor=c_subdomain); s.node('BAY', 'Bayesian Statistics', fillcolor=c_subdomain); s.node('CI', 'Confidence Intervals', fillcolor=c_subdomain); s.node('HT', 'Hypothesis Testing', fillcolor=c_subdomain); s.node('NR', 'Nelson Rules', fillcolor=c_subdomain); s.node('WR', 'Westgard Rules', fillcolor=c_subdomain); s.node('PC', 'Process Capability', fillcolor=c_subdomain); s.node('CC', 'Control Charts', fillcolor=c_subdomain)
     with dot.subgraph() as s:
-        s.attr(rank='same')
-        s.node('PE', 'Proportion Estimates', fillcolor=c_tool)
-        s.node('PP', 'Posterior Probabilities', fillcolor=c_tool)
-        s.node('ZME', 'Z-score / Margin of Error', fillcolor=c_tool)
-        s.node('TAV', 'T-tests / ANOVA', fillcolor=c_tool)
-        s.node('MQA', 'Manufacturing QA', fillcolor=c_tool)
-        s.node('CL', 'Clinical Labs', fillcolor=c_tool)
-        s.node('CSM', 'CUSUM', fillcolor=c_tool)
-        s.node('EWM', 'EWMA', fillcolor=c_tool)
-        s.node('SWH', 'Shewhart Charts', fillcolor=c_tool)
-        s.node('ML', 'Machine Learning', fillcolor=c_tool)
-        s.node('CT', 'Clinical Trials', fillcolor=c_tool)
-        s.node('QE', 'Quality Engineering', fillcolor=c_tool)
+        s.attr(rank='same'); s.node('PE', 'Proportion Estimates', fillcolor=c_tool); s.node('PP', 'Posterior Probabilities', fillcolor=c_tool); s.node('ZME', 'Z-score / Margin of Error', fillcolor=c_tool); s.node('TAV', 'T-tests / ANOVA', fillcolor=c_tool); s.node('MQA', 'Manufacturing QA', fillcolor=c_tool); s.node('CL', 'Clinical Labs', fillcolor=c_tool); s.node('CSM', 'CUSUM', fillcolor=c_tool); s.node('EWM', 'EWMA', fillcolor=c_tool); s.node('SWH', 'Shewhart Charts', fillcolor=c_tool); s.node('ML', 'Machine Learning', fillcolor=c_tool); s.node('CT', 'Clinical Trials', fillcolor=c_tool); s.node('QE', 'Quality Engineering', fillcolor=c_tool)
 
-    # Edges
-    dot.edges(['IE-SPC', 'ST-SPC', 'ST-SI', 'BS-SI', 'DS-SI', 'DS-ML'])
-    dot.edges(['BS-CT', 'IE-QE'])
-    dot.edges(['SPC-CC', 'SPC-PC', 'SPC-QE'])
-    dot.edges(['SI-HT', 'SI-CI', 'SI-BAY', 'SI-WR', 'SI-NR', 'SI-CT', 'SI-ML'])
-    dot.edges(['CC-SWH', 'CC-EWM', 'CC-CSM'])
-    dot.edges(['PC-MQA'])
-    dot.edges(['WR-CL'])
-    dot.edges(['NR-MQA'])
-    dot.edges(['HT-TAV'])
-    dot.edges(['CI-ZME', 'CI-WS'])
-    dot.edges(['BAY-PP'])
-    dot.edges(['WS-PE'])
+    # Edges - CORRECTED FORMAT
+    dot.edges([('IE', 'SPC'), ('ST', 'SPC'), ('ST', 'SI'), ('BS', 'SI'), ('DS', 'SI'), ('DS', 'ML')])
+    dot.edges([('BS', 'CT'), ('IE', 'QE')])
+    dot.edges([('SPC', 'CC'), ('SPC', 'PC'), ('SPC', 'QE')])
+    dot.edges([('SI', 'HT'), ('SI', 'CI'), ('SI', 'BAY'), ('SI', 'WR'), ('SI', 'NR'), ('SI', 'CT'), ('SI', 'ML')])
+    dot.edges([('CC', 'SWH'), ('CC', 'EWM'), ('CC', 'CSM')])
+    dot.edges([('PC', 'MQA')])
+    dot.edges([('WR', 'CL')])
+    dot.edges([('NR', 'MQA')])
+    dot.edges([('HT', 'TAV')])
+    dot.edges([('CI', 'ZME'), ('CI', 'WS')])
+    dot.edges([('BAY', 'PP')])
+    dot.edges([('WS', 'PE')])
 
-    # Render the graph
     output_filename = 'conceptual_map'
     dot.render(output_filename, format='png', cleanup=True)
     return f"{output_filename}.png"
@@ -119,7 +81,11 @@ def wilson_score_interval(p_hat, n, z=1.96):
     term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2)))
     return (term1 - term2) / denom, (term1 + term2) / denom
 
-# ... (All 15 plotting functions are included here, unabridged)
+# ==============================================================================
+# PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
+# ==============================================================================
+# All 15 plotting functions are included here, unabridged.
+
 def plot_gage_rr():
     np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
     for op_idx, operator in enumerate(['Alice', 'Bob', 'Charlie']):
@@ -216,7 +182,6 @@ def plot_ci_concept():
         fig.add_trace(go.Scatter(x=[ci_lower, ci_upper], y=[i, i], mode='lines', line=dict(color=color, width=3), hoverinfo='none')); fig.add_trace(go.Scatter(x=[sample_mean], y=[i], mode='markers', marker=dict(color='black', size=5), hoverinfo='none'))
     fig.add_vline(x=pop_mean, line_dash="dash", line_color="black", annotation_text=f"True Mean={pop_mean}"); fig.update_layout(title_text=f'Conceptual Simulation of 100 95% Confidence Intervals', xaxis_title='Value', yaxis_title='Simulation Run', showlegend=False, height=700); return fig, capture_count, n_sims
 
-
 # ==============================================================================
 # MAIN APP LAYOUT
 # ==============================================================================
@@ -244,7 +209,7 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 st.header(method_key)
 
 # --- Dynamic Content Display ---
-# ... (All 15 elif blocks are included here, unabridged, with the professional two-column layout)
+
 if "Gage R&R" in method_key:
     st.markdown("**Objective:** Before evaluating a process, you must first validate the measurement system. A Gage R&R study quantifies the inherent variability (error) of the assay, partitioning it into components like repeatability and reproducibility.")
     col1, col2 = st.columns([0.7, 0.3]);
