@@ -274,9 +274,74 @@ def plot_lod_loq():
     fig.update_xaxes(title_text="Concentration (ng/mL)", row=2, col=1)
     
     return fig, LOD, LOQ
+    
 def plot_method_comparison():
-    np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x-x_mean)**2); Sxy = np.sum((x-x_mean)*(y-y_mean)); beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; diff = y - x; mean_diff = np.mean(diff); upper_loa = mean_diff + 1.96*np.std(diff,ddof=1); lower_loa = mean_diff - 1.96*np.std(diff,ddof=1)
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot")); fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2); fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
+    # --- Data Generation ---
+    np.random.seed(42)
+    # R&D method is the 'true' reference
+    x = np.linspace(20, 150, 50)
+    # QC method has a small proportional and constant bias
+    y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50)
+    
+    # --- Calculations ---
+    # Deming Regression
+    delta = np.var(y, ddof=1) / np.var(x, ddof=1)
+    x_mean, y_mean = np.mean(x), np.mean(y)
+    Sxx = np.sum((x - x_mean)**2); Sxy = np.sum((x - x_mean)*(y - y_mean))
+    beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy)
+    beta0_deming = y_mean - beta1_deming*x_mean
+    
+    # Bland-Altman
+    avg = (x + y) / 2
+    diff = y - x
+    mean_diff = np.mean(diff)
+    std_diff = np.std(diff, ddof=1)
+    upper_loa = mean_diff + 1.96 * std_diff
+    lower_loa = mean_diff - 1.96 * std_diff
+    
+    # % Bias
+    percent_bias = (diff / x) * 100
+    
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=2, cols=2,
+        specs=[[{}, {}], [{"colspan": 2}, None]],
+        subplot_titles=("<b>Deming Regression</b>", "<b>Bland-Altman Agreement Plot</b>", "<b>Percent Bias vs. Concentration</b>"),
+        vertical_spacing=0.2
+    )
+
+    # --- Plot 1: Deming Regression ---
+    fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results', marker=dict(color='blue')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit', line=dict(color='red')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1)
+
+    # --- Plot 2: Bland-Altman Plot ---
+    fig.add_trace(go.Scatter(x=avg, y=diff, mode='markers', name='Difference', marker=dict(color='purple')), row=1, col=2)
+    fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2)
+    fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2)
+    fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2)
+
+    # --- Plot 3: Percent Bias Plot ---
+    fig.add_trace(go.Scatter(x=x, y=percent_bias, mode='markers', name='% Bias', marker=dict(color='orange')), row=2, col=1)
+    fig.add_hrect(y0=-15, y1=15, fillcolor="green", opacity=0.1, layer="below", line_width=0, row=2, col=1)
+    fig.add_hline(y=0, line_dash="dash", line_color="black", row=2, col=1)
+    fig.add_hline(y=15, line_dash="dot", line_color="red", row=2, col=1)
+    fig.add_hline(y=-15, line_dash="dot", line_color="red", row=2, col=1)
+    
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>Method Comparison Dashboard: R&D Lab vs QC Lab</b>',
+        height=800,
+        showlegend=False
+    )
+    fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1)
+    fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1)
+    fig.update_xaxes(title_text="Average of Methods", row=1, col=2)
+    fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2)
+    fig.update_xaxes(title_text="R&D Lab (Reference Concentration)", row=2, col=1)
+    fig.update_yaxes(title_text="% Bias", range=[-25, 25], row=2, col=1)
+    
+    return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
 
 def plot_robustness_rsm():
     # --- Data Generation ---
@@ -725,22 +790,39 @@ elif "LOD & LOQ" in method_key:
             st.latex(r"LOQ = \frac{10 \times \sigma}{S}")
 
 elif "Method Comparison" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To formally assess the agreement and bias between two methods (e.g., R&D vs. QC lab). **Application:** This is a cornerstone of transfer, replacing simpler tests with a more powerful analysis across the full measurement range.")
+    st.markdown("""
+    **Purpose:** To formally assess the agreement and bias between two different measurement methods (e.g., a new assay vs. a gold standard, or the R&D lab vs. the QC lab).
+    
+    **Definition:** This analysis quantifies the systematic and random differences between two methods that are intended to measure the same quantity. It goes far beyond a simple correlation to determine if the methods can be used interchangeably.
+    
+    **Application:** This is the heart of the "Crucible" act in our Hero's journey. Having forged a new weapon (the assay), the Hero must now prove it is as good as the old one. This study provides the definitive evidence to answer the critical question: "Do these two methods agree sufficiently well?" A successful outcome is a cornerstone of a successful assay transfer or method validation.
+    """)
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: fig, slope, intercept, bias, ua, la = plot_method_comparison(); st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig, slope, intercept, bias, ua, la = plot_method_comparison()
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Mean Bias (B-A)", value=f"{bias:.2f}"); st.metric(label="💡 Metric: Deming Slope", value=f"{slope:.3f}"); st.metric(label="💡 Metric: Deming Intercept", value=f"{intercept:.2f}")
-            st.markdown("- **Deming:** Checks for systematic constant (intercept) and proportional (slope) errors."); st.markdown("- **Bland-Altman:** Visualizes the random error and quantifies the expected range of disagreement.")
-            st.markdown("**The Bottom Line:** Passing both analyses proves that the receiving lab's method is statistically indistinguishable from the reference method, confirming a successful transfer.")
+            st.metric(label="📈 KPI: Mean Bias (B-A)", value=f"{bias:.2f} units")
+            st.metric(label="💡 Metric: Deming Slope", value=f"{slope:.3f}", help="Ideal = 1.0. Measures proportional bias.")
+            st.metric(label="💡 Metric: Deming Intercept", value=f"{intercept:.2f}", help="Ideal = 0.0. Measures constant bias.")
+            st.markdown("- **Deming Regression:** The confidence band shows the uncertainty. If the 'Line of Identity' falls within this band, there is no significant systematic bias.")
+            st.markdown("- **Bland-Altman Plot:** Visualizes the random error and quantifies the expected range of disagreement (Limits of Agreement). Look for trends or funnel shapes, which indicate non-constant bias.")
+            st.markdown("- **% Bias Plot:** Directly assesses practical significance. Does the bias at any concentration exceed the pre-defined limits (e.g., ±15%)?")
+            st.markdown("**The Bottom Line:** Passing all three analyses proves that the receiving lab's method is statistically indistinguishable from the reference method, confirming a successful transfer.")
         with tab2:
-            st.markdown("- **Deming:** Slope CI should contain 1; Intercept CI should contain 0."); st.markdown(f"- **Bland-Altman:** >95% of points must be within the Limits of Agreement. The LoA width (`{la:.2f}` to `{ua:.2f}`) must be practically acceptable.")
+            st.markdown("- **Deming Regression:** The 95% confidence interval for the **slope should contain 1.0**, and the 95% CI for the **intercept should contain 0**.")
+            st.markdown(f"- **Bland-Altman:** Greater than 95% of the data points must fall within the Limits of Agreement (`{la:.2f}` to `{ua:.2f}`). The width of this interval must be practically or clinically acceptable.")
+            st.markdown("- **Percent Bias:** The bias at each concentration level should not exceed a pre-defined limit, often **±15%**. ")
         with tab3:
-            st.markdown("**Origin:** Deming Regression (W. Edwards Deming); Bland-Altman plot (1986)."); st.markdown("**Mathematical Basis:** Deming minimizes perpendicular distances to the line. Bland-Altman plots Difference vs. Average; Limits of Agreement are $\\bar{d} \\pm 1.96 \\cdot s_d$.")
-
+            st.markdown("**Origin:** Deming Regression (W. Edwards Deming) is an errors-in-variables model. The Bland-Altman plot (1986 Lancet paper) was created to properly assess agreement between two clinical measurement methods.")
+            st.markdown("**Mathematical Basis (Bland-Altman):**")
+            st.markdown("For each sample $i$, calculate Average $(\\frac{x_i+y_i}{2})$ and Difference $(y_i - x_i)$. The Limits of Agreement (LoA) are defined as:")
+            st.latex(r"\bar{d} \pm 1.96 \cdot s_d")
+            st.markdown("where $\\bar{d}$ and $s_d$ are the mean and standard deviation of the differences.")
+            
 elif "Assay Robustness (DOE/RSM)" in method_key:
     st.markdown("""
     **Purpose:** To systematically explore how deliberate variations in assay parameters (e.g., temperature, pH) affect the outcome. This is a crucial step in building a deep understanding of the method.
