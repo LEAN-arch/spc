@@ -1323,7 +1323,7 @@ st.plotly_chart(fig_v_model, use_container_width=True)
 st.divider()
 
 # --- Sidebar Controls ---
-st.sidebar.title("Toolkit Navigation")
+st.sidebar.title("🧰 Toolkit Navigation")
 st.sidebar.markdown("Select a statistical method to analyze and visualize.")
 method_key = st.sidebar.radio("Select a Method:", options=[
     "1. Gage R&R", "2. Linearity and Range", "3. LOD & LOQ", "4. Method Comparison",
