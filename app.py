@@ -12,69 +12,43 @@ from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LogisticRegression
 from prophet import Prophet
 from prophet.plot import plot_plotly, plot_components_plotly
-import graphviz
-import os
 
 # ==============================================================================
-# APP CONFIGURATION
+# APP CONFIGURATION & STYLING
 # ==============================================================================
 st.set_page_config(layout="wide", page_title="An Interactive Guide to Assay Transfer Statistics", page_icon="📈")
 
 st.markdown("""
 <style>
-    .reportview-container { background: #f0f2f6; }
-    .main .block-container { padding: 2rem 3rem; }
-    .stExpander { border: 1px solid #e6e6e6; border-radius: 0.5rem; }
-    h1, h2, h3 { color: #2c3e50; }
-    .results-container {
-        border: 1px solid #cccccc;
-        border-radius: 5px;
-        padding: 15px;
-        background-color: white;
-    }
+    .main .block-container { padding: 1.5rem 3rem; }
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; background-color: #f0f2f6; }
+    .stTabs [aria-selected="true"] { background-color: #e0e0e0; }
+    [data-testid="stMetric"] { background-color: #FFFFFF; border: 1px solid #CCCCCC; padding: 10px; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# HELPER & GRAPHICS GENERATION FUNCTIONS
+# HELPER & PLOTTING FUNCTIONS
 # ==============================================================================
+# All plotting and helper functions are defined here. They are optimized for Plotly and clarity.
+
 @st.cache_data
-def create_conceptual_map_graphviz():
-    """Generates the hierarchical map using Graphviz."""
-    dot = graphviz.Digraph('StatisticalConcepts', comment='Hierarchical Map')
-    dot.attr(rankdir='LR', splines='spline', overlap='false', nodesep='0.4', ranksep='1.5')
-    dot.attr('node', shape='circle', style='filled', penwidth='2', fontname='Helvetica', fontsize='12')
-    dot.attr('edge', color='gray', arrowhead='normal')
-
-    c_discipline = "#e0f2f1"; c_domain = "#b2dfdb"; c_subdomain = "#80cbc4"; c_tool = "#4db6ac"
-
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('DS', 'Data Science', fillcolor=c_discipline); s.node('BS', 'Biostatistics', fillcolor=c_discipline); s.node('ST', 'Statistics', fillcolor=c_discipline); s.node('IE', 'Industrial Engineering', fillcolor=c_discipline)
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('SI', 'Statistical Inference', fillcolor=c_domain); s.node('SPC', 'SPC', fillcolor=c_domain)
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('WS', 'Wilson Score', fillcolor=c_subdomain); s.node('BAY', 'Bayesian Statistics', fillcolor=c_subdomain); s.node('CI', 'Confidence Intervals', fillcolor=c_subdomain); s.node('HT', 'Hypothesis Testing', fillcolor=c_subdomain); s.node('NR', 'Nelson Rules', fillcolor=c_subdomain); s.node('WR', 'Westgard Rules', fillcolor=c_subdomain); s.node('PC', 'Process Capability', fillcolor=c_subdomain); s.node('CC', 'Control Charts', fillcolor=c_subdomain)
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('PE', 'Proportion Estimates', fillcolor=c_tool); s.node('PP', 'Posterior Probabilities', fillcolor=c_tool); s.node('ZME', 'Z-score / Margin of Error', fillcolor=c_tool); s.node('TAV', 'T-tests / ANOVA', fillcolor=c_tool); s.node('MQA', 'Manufacturing QA', fillcolor=c_tool); s.node('CL', 'Clinical Labs', fillcolor=c_tool); s.node('CSM', 'CUSUM', fillcolor=c_tool); s.node('EWM', 'EWMA', fillcolor=c_tool); s.node('SWH', 'Shewhart Charts', fillcolor=c_tool); s.node('ML', 'Machine Learning', fillcolor=c_tool); s.node('CT', 'Clinical Trials', fillcolor=c_tool); s.node('QE', 'Quality Engineering', fillcolor=c_tool)
-
-    dot.edges([('IE', 'SPC'), ('ST', 'SPC'), ('ST', 'SI'), ('BS', 'SI'), ('DS', 'SI'), ('DS', 'ML')]); dot.edges([('BS', 'CT'), ('IE', 'QE')]); dot.edges([('SPC', 'CC'), ('SPC', 'PC'), ('SPC', 'QE')]); dot.edges([('SI', 'HT'), ('SI', 'CI'), ('SI', 'BAY'), ('SI', 'WR'), ('SI', 'NR'), ('SI', 'CT'), ('SI', 'ML')]); dot.edges([('CC', 'SWH'), ('CC', 'EWM'), ('CC', 'CSM')]); dot.edges([('PC', 'MQA')]); dot.edges([('WR', 'CL')]); dot.edges([('NR', 'MQA')]); dot.edges([('HT', 'TAV')]); dot.edges([('CI', 'ZME'), ('CI', 'WS')]); dot.edges([('BAY', 'PP')]); dot.edges([('WS', 'PE')])
-    
-    output_filename = 'conceptual_map'
-    dot.render(output_filename, format='png', cleanup=True)
-    return f"{output_filename}.png"
+def create_conceptual_map_plotly():
+    nodes = { 'DS': ('Data Science', 0, 3.5), 'BS': ('Biostatistics', 0, 2.5), 'ST': ('Statistics', 0, 1.5), 'IE': ('Industrial Engineering', 0, 0.5), 'SI': ('Statistical Inference', 1, 2.5), 'SPC': ('SPC', 1, 0.5), 'CC': ('Control Charts', 2, 0), 'PC': ('Process Capability', 2, 1), 'WR': ('Westgard Rules', 2, 2), 'NR': ('Nelson Rules', 2, 3), 'HT': ('Hypothesis Testing', 2, 4), 'CI': ('Confidence Intervals', 2, 5), 'BAY': ('Bayesian Statistics', 2, 6), 'SWH': ('Shewhart Charts', 3, -0.5), 'EWM': ('EWMA', 3, 0), 'CSM': ('CUSUM', 3, 0.5), 'MQA': ('Manufacturing QA', 3, 1.5), 'CL': ('Clinical Labs', 3, 2.5), 'TAV': ('T-tests / ANOVA', 3, 3.5), 'ZME': ('Z-score / Margin of Error', 3, 4.5), 'WS': ('Wilson Score', 3, 5.5), 'PP': ('Posterior Probabilities', 3, 6.5), 'PE': ('Proportion Estimates', 4, 6.0) }
+    edges = [('IE', 'SPC'), ('ST', 'SPC'), ('ST', 'SI'), ('BS', 'SI'), ('DS', 'SI'), ('SPC', 'CC'), ('SPC', 'PC'), ('SI', 'HT'), ('SI', 'CI'), ('SI', 'BAY'), ('SI', 'WR'), ('SI', 'NR'), ('CC', 'SWH'), ('CC', 'EWM'), ('CC', 'CSM'), ('PC', 'MQA'), ('WR', 'CL'), ('NR', 'MQA'), ('HT', 'TAV'), ('CI', 'ZME'), ('CI', 'WS'), ('BAY', 'PP'), ('WS', 'PE')]
+    fig = go.Figure()
+    for start, end in edges: fig.add_trace(go.Scatter(x=[nodes[start][1], nodes[end][1]], y=[nodes[start][2], nodes[end][2]], mode='lines', line=dict(color='grey', width=1), hoverinfo='none'))
+    node_x = [v[1] for v in nodes.values()]; node_y = [v[2] for v in nodes.values()]; node_text = [v[0] for v in nodes.values()]; colors = ["#e0f2f1"]*4 + ["#b2dfdb"]*2 + ["#80cbc4"]*8 + ["#4db6ac"]*10
+    fig.add_trace(go.Scatter(x=node_x, y=node_y, text=node_text, mode='markers+text', textposition="middle center", marker=dict(size=45, color=colors, line=dict(width=2, color='black')), textfont=dict(size=10, color='black'), hoverinfo='text'))
+    fig.update_layout(title_text='Hierarchical Map of Statistical Concepts', showlegend=False, xaxis=dict(showgrid=False, zeroline=False, showticklabels=False), yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 7.5]), height=700, margin=dict(l=20, r=20, t=40, b=20), plot_bgcolor='#FFFFFF', paper_bgcolor='#f0f2f6')
+    return fig
 
 def wilson_score_interval(p_hat, n, z=1.96):
     if n == 0: return (0, 1)
-    term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n
-    term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2)))
-    return (term1 - term2) / denom, (term1 + term2) / denom
+    term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n; term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2))); return (term1 - term2) / denom, (term1 + term2) / denom
 
-# ... (All 15 plotting functions are included here, unabridged, with their Plotly implementations) ...
-# ==============================================================================
-# PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
-# ==============================================================================
-# Note: Functions now return key metrics where applicable for display in the UI.
-
+# ... (All 15 plotting functions are here, fully implemented and unabridged) ...
 def plot_gage_rr():
     np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
     for op_idx, operator in enumerate(['Alice', 'Bob', 'Charlie']):
@@ -100,38 +74,8 @@ def plot_method_comparison():
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot")); fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2); fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
 
 def plot_robustness_rsm():
-    # Central Composite Design data generation
-    np.random.seed(42)
-    factors = {'Temp': [-1, 1, -1, 1, -1.414, 1.414, 0, 0, 0, 0, 0, 0, 0], 'pH': [-1, -1, 1, 1, 0, 0, -1.414, 1.414, 0, 0, 0, 0, 0]}
-    df = pd.DataFrame(factors)
-    center_points = pd.DataFrame({'Temp': [0]*5, 'pH': [0]*5})
-    df = pd.concat([df.iloc[:4], df.iloc[4:8], df.iloc[8:]], ignore_index=True) # Reorder for clarity
-    
-    # Quadratic Response Surface Model
-    df['Response'] = 95 - 5*df['Temp'] + 2*df['pH'] - 4*(df['Temp']**2) - 2*(df['pH']**2) + 3*df['Temp']*df['pH'] + np.random.normal(0, 1.5, len(df))
-    model = ols('Response ~ Temp + pH + I(Temp**2) + I(pH**2) + Temp:pH', data=df).fit()
-    
-    # Create grid for contour/surface plots
-    temp_range = np.linspace(-2, 2, 50)
-    ph_range = np.linspace(-2, 2, 50)
-    grid_temp, grid_ph = np.meshgrid(temp_range, ph_range)
-    grid_df = pd.DataFrame({'Temp': grid_temp.ravel(), 'pH': grid_ph.ravel()})
-    grid_df['Predicted_Response'] = model.predict(grid_df)
-    predicted_response_grid = grid_df['Predicted_Response'].values.reshape(50, 50)
-
-    # Pareto Plot (from original DOE)
-    doe_data = {'Temp': [-1, 1, -1, 1], 'pH': [-1, -1, 1, 1]}; doe_df = pd.DataFrame(doe_data); doe_df['Response'] = 95 - 5*doe_df['Temp'] + 2*doe_df['pH'] + 3*doe_df['Temp']*doe_df['pH'] + np.random.normal(0, 1.5, 4)
-    doe_model = ols('Response ~ Temp * pH', data=doe_df).fit(); effects = doe_model.params.iloc[1:].sort_values(key=abs, ascending=False)
-    
-    # Create figures
-    fig_pareto = px.bar(x=effects.values, y=effects.index, orientation='h', title="Pareto Plot of Factor Effects")
-    fig_contour = go.Figure(data=go.Contour(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis', contours=dict(coloring='lines', showlabels=True)))
-    fig_contour.add_trace(go.Scatter(x=df['Temp'], y=df['pH'], mode='markers', marker=dict(color='red', size=8), name='Design Points'))
-    fig_contour.update_layout(title="2D Contour Plot of Response Surface", xaxis_title="Temperature (coded units)", yaxis_title="pH (coded units)")
-    fig_surface = go.Figure(data=[go.Surface(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis')])
-    fig_surface.update_layout(title='3D Response Surface Plot', scene=dict(xaxis_title="Temperature", yaxis_title="pH", zaxis_title="Assay Response"))
-    
-    return fig_pareto, fig_contour, fig_surface
+    np.random.seed(42); factors = {'Temp': [-1, 1, -1, 1, -1.414, 1.414, 0, 0, 0, 0, 0, 0, 0], 'pH': [-1, -1, 1, 1, 0, 0, -1.414, 1.414, 0, 0, 0, 0, 0]}; df = pd.DataFrame(factors); df['Response'] = 95 - 5*df['Temp'] + 2*df['pH'] - 4*(df['Temp']**2) - 2*(df['pH']**2) + 3*df['Temp']*df['pH'] + np.random.normal(0, 1.5, len(df)); model = ols('Response ~ Temp + pH + I(Temp**2) + I(pH**2) + Temp:pH', data=df).fit(); temp_range = np.linspace(-2, 2, 50); ph_range = np.linspace(-2, 2, 50); grid_temp, grid_ph = np.meshgrid(temp_range, ph_range); grid_df = pd.DataFrame({'Temp': grid_temp.ravel(), 'pH': grid_ph.ravel()}); grid_df['Predicted_Response'] = model.predict(grid_df); predicted_response_grid = grid_df['Predicted_Response'].values.reshape(50, 50); doe_data = {'Temp': [-1, 1, -1, 1], 'pH': [-1, -1, 1, 1]}; doe_df = pd.DataFrame(doe_data); doe_df['Response'] = 95 - 5*doe_df['Temp'] + 2*doe_df['pH'] + 3*doe_df['Temp']*doe_df['pH'] + np.random.normal(0, 1.5, 4); doe_model = ols('Response ~ Temp * pH', data=doe_df).fit(); effects = doe_model.params.iloc[1:].sort_values(key=abs, ascending=False)
+    fig_pareto = px.bar(x=effects.values, y=effects.index, orientation='h', title="Pareto Plot of Factor Effects"); fig_contour = go.Figure(data=go.Contour(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis', contours=dict(coloring='lines', showlabels=True))); fig_contour.add_trace(go.Scatter(x=df['Temp'], y=df['pH'], mode='markers', marker=dict(color='red', size=8), name='Design Points')); fig_contour.update_layout(title="2D Contour Plot of Response Surface", xaxis_title="Temperature (coded units)", yaxis_title="pH (coded units)"); fig_surface = go.Figure(data=[go.Surface(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis')]); fig_surface.update_layout(title='3D Response Surface Plot', scene=dict(xaxis_title="Temperature", yaxis_title="pH", zaxis_title="Assay Response")); return fig_pareto, fig_contour, fig_surface
 
 def plot_shewhart():
     np.random.seed(42); in_control = np.random.normal(100.0, 2.0, 15); reagent_shift = np.random.normal(108.0, 2.0, 10); data = np.concatenate([in_control, reagent_shift]); x = np.arange(1, len(data) + 1); mean = np.mean(data[:15]); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr[:14]); sigma_est = mr_mean / 1.128; UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est; out_of_control_I = np.where((data > UCL_I) | (data < LCL_I))[0]; UCL_MR = mr_mean * 3.267
@@ -205,15 +149,11 @@ def plot_ci_concept():
 st.title("🔬 An Interactive Guide to Assay Transfer Statistics")
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore the statistical methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
-st.info("⚠️ **Note:** To display the conceptual map below, this app uses Graphviz. If the map does not appear, you may need to install the Graphviz system software. See the README for your operating system.")
 try:
-    if not os.path.exists('conceptual_map.png'):
-        with st.spinner("Generating conceptual map..."):
-            create_conceptual_map_graphviz()
-    st.image("conceptual_map.png", caption="A hierarchical map showing the relationship between academic disciplines, core domains, and the specific tools covered in this guide.", use_container_width=True)
+    st.image(create_conceptual_map_graphviz(), caption="A hierarchical map showing the relationship between academic disciplines, core domains, and the specific tools covered in this guide.", use_container_width=True)
 except Exception as e:
-    st.error(f"Could not render the Graphviz conceptual map. This usually means the Graphviz system software is not installed or not in the system's PATH. Error: {e}")
-    st.markdown("Please see the installation instructions for your OS. As a fallback, here is a simplified map rendered with Plotly:")
+    st.error(f"Could not render the Graphviz conceptual map. This usually means the Graphviz system software is not installed or not in the system's PATH. Error: {e}", icon="⚠️")
+    st.markdown("Please see the installation instructions for your OS to enable the map visualization. As a fallback, a simplified map is shown below.")
     st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
 
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
@@ -239,8 +179,8 @@ if "Gage R&R" in method_key:
     with col1: fig, pct_rr, pct_part = plot_gage_rr(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.metric(label="% Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse"); st.metric(label="% Part-to-Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
-            st.markdown("---"); st.markdown("##### Acceptance Rules (AIAG):"); st.markdown("- **< 10%:** System is **acceptable**."); st.markdown("- **10% - 30%:** **Conditionally acceptable**."); st.markdown("- **> 30%:** System is **unacceptable**.")
+            st.subheader("💡 Key Insights & Acceptance"); st.metric(label="% Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse"); st.metric(label="% Part-to-Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules (AIAG):"); st.markdown("- **< 10%:** System is **acceptable**."); st.markdown("- **10% - 30%:** **Conditionally acceptable**."); st.markdown("- **> 30%:** System is **unacceptable**.")
 
 elif "Linearity and Range" in method_key:
     st.markdown("**Objective:** To verify the assay's ability to provide results that are directly proportional to the analyte concentration across a specified range, thereby defining its reportable limits.")
@@ -248,8 +188,8 @@ elif "Linearity and Range" in method_key:
     with col1: fig, model = plot_linearity(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.metric(label="R-squared (R²)", value=f"{model.rsquared:.4f}"); st.metric(label="Slope", value=f"{model.params[1]:.3f}"); st.metric(label="Y-Intercept", value=f"{model.params[0]:.2f}")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **R² > 0.995** is typically required."); st.markdown("- **Slope** should be within **0.95 - 1.05**."); st.markdown("- **Intercept CI** should contain **0**."); st.markdown("- **Residuals** must be random and unstructured.")
+            st.subheader("💡 Key Insights & Acceptance"); st.metric(label="R-squared (R²)", value=f"{model.rsquared:.4f}"); st.metric(label="Slope", value=f"{model.params[1]:.3f}"); st.metric(label="Y-Intercept", value=f"{model.params[0]:.2f}")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- **R² > 0.995** is typically required."); st.markdown("- **Slope** should be within **0.95 - 1.05**."); st.markdown("- **Intercept CI** should contain **0**."); st.markdown("- **Residuals** must be random and unstructured.")
 
 elif "LOD & LOQ" in method_key:
     st.markdown("**Objective:** To determine the lowest concentration at which the assay can reliably detect (LOD) and accurately quantify (LOQ) an analyte, defining the lower limit of its useful range.")
@@ -257,8 +197,8 @@ elif "LOD & LOQ" in method_key:
     with col1: fig, lod_val, loq_val = plot_lod_loq(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.metric(label="Limit of Detection (LOD)", value=f"{lod_val:.2f} units"); st.metric(label="Limit of Quantitation (LOQ)", value=f"{loq_val:.2f} units")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **LOQ must be ≤ the lowest required concentration** for the assay's intended use.")
+            st.subheader("💡 Key Insights & Acceptance"); st.metric(label="Limit of Detection (LOD)", value=f"{lod_val:.2f} units"); st.metric(label="Limit of Quantitation (LOQ)", value=f"{loq_val:.2f} units")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- **LOQ must be ≤ the lowest required concentration** for the assay's intended use.")
 
 elif "Method Comparison" in method_key:
     st.markdown("**Objective:** To formally assess the agreement and bias between two methods (e.g., R&D vs. QC lab). This is a cornerstone of transfer, replacing simpler tests with a more powerful analysis across the full measurement range.")
@@ -266,24 +206,24 @@ elif "Method Comparison" in method_key:
     with col1: fig, slope, intercept, bias, ua, la = plot_method_comparison(); st.plotly_chart(fig, use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.metric(label="Deming Slope", value=f"{slope:.3f}"); st.metric(label="Mean Bias (B-A)", value=f"{bias:.2f}")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **Deming:** Slope CI should contain 1; Intercept CI should contain 0."); st.markdown(f"- **Bland-Altman:** >95% of points must be within the Limits of Agreement. The LoA width (`{la:.2f}` to `{ua:.2f}`) must be practically acceptable.")
+            st.subheader("💡 Key Insights & Acceptance"); st.metric(label="Deming Slope", value=f"{slope:.3f}"); st.metric(label="Mean Bias (B-A)", value=f"{bias:.2f}")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- **Deming:** Slope CI should contain 1; Intercept CI should contain 0."); st.markdown(f"- **Bland-Altman:** >95% of points must be within the Limits of Agreement. The LoA width (`{la:.2f}` to `{ua:.2f}`) must be practically acceptable.")
 
 elif "Assay Robustness" in method_key:
     st.markdown("**Objective:** To proactively identify which assay parameters (e.g., temperature, pH) have the biggest impact on results and to find the optimal operating region. This is done by deliberately varying parameters in a structured experiment.")
     tab1, tab2, tab3 = st.tabs(["📊 Pareto Plot (Screening)", "📈 2D Contour Plot (Optimization)", "🧊 3D Surface Plot (Visualization)"])
     fig_pareto, fig_contour, fig_surface = plot_robustness_rsm()
     with tab1:
-        st.markdown("A **Screening Design (like a Fractional Factorial)** is used first to identify the 'vital few' parameters that have a significant effect on the assay response. The Pareto plot is the primary output.")
+        st.markdown("A **Screening Design (like a Factorial)** is used first to identify the 'vital few' parameters that have a significant effect on the assay response. The Pareto plot is the primary output.")
         st.plotly_chart(fig_pareto, use_container_width=True)
     with tab2:
-        st.markdown("After identifying the key factors, a **Response Surface Methodology (RSM) design (like a Central Composite Design)** is used to model the relationship in detail. The 2D contour plot helps identify the optimal operating conditions (the 'peak' or 'valley' of the response).")
+        st.markdown("After identifying key factors, a **Response Surface Methodology (RSM) design** is used to model the relationship in detail. The 2D contour plot helps identify the optimal operating conditions (the 'peak' or 'valley' of the response).")
         st.plotly_chart(fig_contour, use_container_width=True)
     with tab3:
         st.markdown("The 3D surface plot provides an intuitive visualization of the response surface, making it easy to see how the factors interact to affect the assay outcome.")
         st.plotly_chart(fig_surface, use_container_width=True)
     with st.expander("Interpretation & Acceptance Criteria"):
-        st.markdown("""- **Screening (Pareto Plot):** Any factor whose effect bar crosses a significance threshold (not shown for simplicity) is considered a critical parameter that must be tightly controlled. The goal is to prove most factors are *not* significant, demonstrating robustness.
+        st.markdown("""- **Screening (Pareto Plot):** Any factor whose effect bar crosses a significance threshold is considered a critical parameter that must be tightly controlled. The goal is to prove most factors are *not* significant, demonstrating robustness.
 - **Optimization (Contour/Surface Plots):** These plots reveal the "sweet spot" for the assay.
 - **Acceptance Rule:** The outcome is knowledge for setting control limits. The goal is to define an **operating space** (a region on the contour plot) where the assay is known to be robust and reliable, and to set SOP limits well within this space.""")
 
@@ -293,8 +233,8 @@ elif "Process Stability" in method_key:
     with col1: st.plotly_chart(plot_shewhart(), use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.markdown("- **I-Chart:** Monitors the process center (accuracy)."); st.markdown("- **MR-Chart:** Monitors run-to-run variability (precision).")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- Process is stable when **at least 20-25 consecutive points on both charts show no out-of-control signals**.")
+            st.subheader("💡 Key Insights & Acceptance"); st.markdown("- **I-Chart:** Monitors the process center (accuracy)."); st.markdown("- **MR-Chart:** Monitors run-to-run variability (precision).")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- Process is stable when **at least 20-25 consecutive points on both charts show no out-of-control signals**.")
 
 elif "Small Shift Detection" in method_key:
     st.markdown("**Objective:** To implement sensitive charts that can detect small, systematic drifts or shifts in assay performance that a Shewhart chart might miss.")
@@ -304,7 +244,7 @@ elif "Small Shift Detection" in method_key:
         else: k_sigma = st.sidebar.slider("CUSUM Slack (k, in σ)", 0.25, 1.5, 0.5, 0.25); H_sigma = st.sidebar.slider("CUSUM Limit (H, in σ)", 2.0, 8.0, 5.0, 0.5); st.plotly_chart(plot_ewma_cusum(chart_type, 0, k_sigma, H_sigma), use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.markdown("- **EWMA:** Best for detecting small *drifts*. **Rule:** Use a small `λ` (0.1-0.3) for monitoring."); st.markdown("- **CUSUM:** Best for detecting small, *abrupt and sustained* shifts. **Rule:** Set `k` to half the magnitude of the shift to detect.")
+            st.subheader("💡 Key Insights & Acceptance"); st.markdown("- **EWMA:** Best for detecting small *drifts*. **Rule:** Use a small `λ` (0.1-0.3) for monitoring."); st.markdown("- **CUSUM:** Best for detecting small, *abrupt and sustained* shifts. **Rule:** Set `k` to half the magnitude of the shift to detect.")
 
 elif "Run Validation" in method_key:
     st.markdown("**Objective:** To create an objective, statistically-driven system for accepting or rejecting each analytical run based on QC sample performance.")
@@ -346,8 +286,8 @@ elif "Process Capability" in method_key:
     with col1: fig, cpk_val = plot_capability(cpk_target_slider); st.plotly_chart(fig, use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.metric(label="Calculated Cpk", value=f"{cpk_val:.2f}")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- `Cpk ≥ 1.33`: Process is **capable**."); st.markdown("- `Cpk ≥ 1.67`: Process is **highly capable**."); st.markdown("- `Cpk < 1.0`: Process is **not capable**.")
+            st.subheader("💡 Key Insights & Acceptance"); st.metric(label="Calculated Cpk", value=f"{cpk_val:.2f}")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- `Cpk ≥ 1.33`: Process is **capable**."); st.markdown("- `Cpk ≥ 1.67`: Process is **highly capable**."); st.markdown("- `Cpk < 1.0`: Process is **not capable**.")
 
 elif "Anomaly Detection" in method_key:
     st.markdown("**Objective:** To leverage machine learning to detect complex, multivariate anomalies that traditional univariate control charts would miss.")
@@ -355,7 +295,7 @@ elif "Anomaly Detection" in method_key:
     with col1: st.plotly_chart(plot_anomaly_detection(), use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.markdown("- **Identifies** points that are anomalous in multi-dimensional space."); st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- Any point flagged as an **anomaly must be investigated** by SMEs to determine root cause.")
+            st.subheader("💡 Key Insights & Acceptance"); st.markdown("- **Identifies** points that are anomalous in multi-dimensional space."); st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- Any point flagged as an **anomaly must be investigated** by SMEs to determine root cause.")
 
 elif "Predictive QC" in method_key:
     st.markdown("**Objective:** To move from reactive to proactive quality control by predicting run failure based on in-process parameters *before* the run is completed.")
@@ -363,8 +303,8 @@ elif "Predictive QC" in method_key:
     with col1: st.plotly_chart(plot_predictive_qc(), use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.markdown("- **Predicts** the probability of a run failing based on initial parameters."); st.markdown("- **Decision Boundary** shows the learned 'risk zones'.")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- A risk threshold is set, e.g., 'If **P(Fail) > 20%**, flag run for operator review.'")
+            st.subheader("💡 Key Insights & Acceptance"); st.markdown("- **Predicts** the probability of a run failing based on initial parameters."); st.markdown("- **Decision Boundary** shows the learned 'risk zones'.")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- A risk threshold is set, e.g., 'If **P(Fail) > 20%**, flag run for operator review.'")
 
 elif "Control Forecasting" in method_key:
     st.markdown("**Objective:** To forecast the future performance of assay controls to anticipate problems and enable proactive management of maintenance and reagent lots.")
@@ -383,8 +323,8 @@ elif "Pass/Fail Analysis" in method_key:
     with col1: st.plotly_chart(plot_wilson(successes_wilson, n_samples_wilson), use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.metric(label="Observed Rate", value=f"{(successes_wilson/n_samples_wilson if n_samples_wilson > 0 else 0):.2%}")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **The lower bound of the 95% Wilson Score CI must be ≥ the target concordance rate** (e.g., 90%).")
+            st.subheader("💡 Key Insights & Acceptance"); st.metric(label="Observed Rate", value=f"{(successes_wilson/n_samples_wilson if n_samples_wilson > 0 else 0):.2%}")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- **The lower bound of the 95% Wilson Score CI must be ≥ the target concordance rate** (e.g., 90%).")
 
 elif "Bayesian Inference" in method_key:
     st.markdown("**Objective:** To formally combine historical data (the 'Prior') with new data (the 'Likelihood') to arrive at a more robust conclusion (the 'Posterior').")
@@ -393,8 +333,8 @@ elif "Bayesian Inference" in method_key:
     with col1: st.plotly_chart(plot_bayesian(prior_type_bayes), use_container_width=True)
     with col2:
         with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.markdown("- **Posterior** (blue line) is the updated belief."); st.markdown("- **Strong Priors** require more data to be swayed.")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- The **95% credible interval must be entirely above the target** (e.g., 90%).")
+            st.subheader("💡 Key Insights & Acceptance"); st.markdown("- **Posterior** (blue line) is the updated belief."); st.markdown("- **Strong Priors** require more data to be swayed.")
+            st.markdown("---"); st.markdown("##### ✅ Acceptance Rules:"); st.markdown("- The **95% credible interval must be entirely above the target** (e.g., 90%).")
 
 elif "Confidence Interval Concept" in method_key:
     st.markdown("**Objective:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals, which underpin many statistical tests.")
