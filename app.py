@@ -491,7 +491,7 @@ st.header(method_key)
 # --- Dynamic Content Display ---
 # All 15 elif blocks follow, each with the full, detailed content and professional layout.
 
-elif "Gage R&R" in method_key:
+if "Gage R&R" in method_key:
     st.markdown("""
     **Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. 
     
