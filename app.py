@@ -1429,9 +1429,28 @@ elif "LOD & LOQ" in method_key:
         with tab2:
             st.markdown("- The primary acceptance criterion is that the experimentally determined **LOQ must be less than or equal to the lowest concentration that needs to be measured** for the assay's intended use (e.g., the specification limit for an impurity).")
         with tab3:
-            st.markdown("**Origin:** Based on the recommendations from the International Council for Harmonisation (ICH) Q2(R1) guidelines.")
-            st.markdown("**Mathematical Basis (Calibration Curve Method):** This is the preferred, most robust method. It uses the standard deviation of the residuals (or y-intercepts) from a low-level calibration curve ($\sigma$) and the slope of that curve (S).")
+            st.markdown("""
+            #### Origin and Development
+
+            The concepts of LOD and LOQ were formalized and harmonized for the pharmaceutical industry by the **International Council for Harmonisation (ICH)** in their **Q2(R1) guideline on Validation of Analytical Procedures**. Before ICH, different regulatory bodies had varying definitions and methods, leading to confusion and inconsistency. The ICH guidelines provided a scientifically sound and globally accepted framework for determining and validating these crucial performance characteristics. This ensures that an assay validated in one country will be accepted by regulators in another.
+
+            The ICH Q2(R1) guideline describes several methods for determining LOD and LOQ, including:
+            1.  **Based on Visual Evaluation:** Only applicable for non-instrumental methods.
+            2.  **Based on Signal-to-Noise Ratio:** Typically used for methods that exhibit baseline noise, like chromatography.
+            3.  **Based on the Standard Deviation of the Response and the Slope:** This is the most common and statistically robust approach for quantitative assays, and it is the method visualized in this toolkit.
+
+            ---
+            
+            #### Mathematical Basis
+
+            The most common method is based on the **standard deviation of the response ($\sigma$)** and the **slope of the calibration curve (S)**. The standard deviation of the response can be determined from the standard deviation of blank measurements or, more robustly, from the standard deviation of the residuals (or y-intercepts) from a low-level regression line.
+
+            - **Limit of Detection (LOD):** The formula is derived to provide a high level of confidence that a signal at this level is not just random noise. The factor 3.3 is an approximation that corresponds to roughly 3 times the standard deviation of the noise.
+            """)
             st.latex(r"LOD = \frac{3.3 \times \sigma}{S}")
+            st.markdown("""
+            - **Limit of Quantitation (LOQ):** This requires a higher signal-to-noise ratio to ensure not just detection, but also acceptable precision. The factor of 10 is the standard convention for this, providing a signal that is roughly 10 times the noise level.
+            """)
             st.latex(r"LOQ = \frac{10 \times \sigma}{S}")
 
 elif "Method Comparison" in method_key:
