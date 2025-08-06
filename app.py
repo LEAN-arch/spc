@@ -12,6 +12,8 @@ from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LogisticRegression
 from prophet import Prophet
 from prophet.plot import plot_plotly, plot_components_plotly
+import graphviz
+import os
 
 # ==============================================================================
 # APP CONFIGURATION
@@ -37,37 +39,29 @@ st.markdown("""
 # HELPER & GRAPHICS GENERATION FUNCTIONS
 # ==============================================================================
 @st.cache_data
-def create_conceptual_map_plotly():
-    """Generates the hierarchical map using Plotly."""
-    nodes = {
-        'DS': ('Data Science', 0, 3), 'BS': ('Biostatistics', 0, 2), 'ST': ('Statistics', 0, 1), 'IE': ('Industrial Engineering', 0, 0),
-        'SI': ('Statistical Inference', 1, 2.5), 'SPC': ('SPC', 1, 0.5),
-        'WS': ('Wilson Score', 2, 4), 'BAY': ('Bayesian Statistics', 2, 3.5), 'CI': ('Confidence Intervals', 2, 3), 'HT': ('Hypothesis Testing', 2, 2.5), 'NR': ('Nelson Rules', 2, 2), 'WR': ('Westgard Rules', 2, 1.5), 'PC': ('Process Capability', 2, 1), 'CC': ('Control Charts', 2, 0.5),
-        'PE': ('Proportion Estimates', 3, 4), 'PP': ('Posterior Probabilities', 3, 3.5), 'ZME': ('Z-score / Margin of Error', 3, 3), 'TAV': ('T-tests / ANOVA', 3, 2.5), 'MQA': ('Manufacturing QA', 3, 2), 'CL': ('Clinical Labs', 3, 1.5), 'CSM': ('CUSUM', 3, 1), 'EWM': ('EWMA', 3, 0.5), 'SWH': ('Shewhart Charts', 3, 0),
-    }
-    edges = [('IE', 'SPC'), ('ST', 'SPC'), ('ST', 'SI'), ('BS', 'SI'), ('DS', 'SI'), ('SPC', 'CC'), ('SPC', 'PC'), ('SI', 'HT'), ('SI', 'CI'), ('SI', 'BAY'), ('SI', 'WR'), ('SI', 'NR'), ('CC', 'SWH'), ('CC', 'EWM'), ('CC', 'CSM'), ('PC', 'MQA'), ('WR', 'CL'), ('NR', 'MQA'), ('HT', 'TAV'), ('CI', 'ZME'), ('CI', 'WS'), ('BAY', 'PP'), ('WS', 'PE')]
-    
-    fig = go.Figure()
-    
-    # Add edges
-    for start, end in edges:
-        fig.add_trace(go.Scatter(x=[nodes[start][1], nodes[end][1]], y=[nodes[start][2], nodes[end][2]], mode='lines', line=dict(color='grey', width=1)))
+def create_conceptual_map_graphviz():
+    """Generates the hierarchical map using Graphviz."""
+    dot = graphviz.Digraph('StatisticalConcepts', comment='Hierarchical Map')
+    dot.attr(rankdir='LR', splines='spline', overlap='false', nodesep='0.4', ranksep='1.5')
+    dot.attr('node', shape='circle', style='filled', penwidth='2', fontname='Helvetica', fontsize='12')
+    dot.attr('edge', color='gray', arrowhead='normal')
 
-    # Add nodes
-    node_x = [v[1] for v in nodes.values()]; node_y = [v[2] for v in nodes.values()]; node_text = [v[0] for v in nodes.values()]
-    colors = ["#e0f2f1"]*4 + ["#b2dfdb"]*2 + ["#80cbc4"]*8 + ["#4db6ac"]*9
-    fig.add_trace(go.Scatter(x=node_x, y=node_y, text=node_text, mode='markers+text', textposition="top center", marker=dict(size=50, color=colors, line=dict(width=2, color='black'))))
+    c_discipline = "#e0f2f1"; c_domain = "#b2dfdb"; c_subdomain = "#80cbc4"; c_tool = "#4db6ac"
 
-    fig.update_layout(
-        title_text='Hierarchical Map of Statistical Concepts in Quality & Development',
-        showlegend=False,
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        height=700,
-        margin=dict(l=20, r=20, t=40, b=20),
-        plot_bgcolor='#f0f2f6'
-    )
-    return fig
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('DS', 'Data Science', fillcolor=c_discipline); s.node('BS', 'Biostatistics', fillcolor=c_discipline); s.node('ST', 'Statistics', fillcolor=c_discipline); s.node('IE', 'Industrial Engineering', fillcolor=c_discipline)
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('SI', 'Statistical Inference', fillcolor=c_domain); s.node('SPC', 'SPC', fillcolor=c_domain)
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('WS', 'Wilson Score', fillcolor=c_subdomain); s.node('BAY', 'Bayesian Statistics', fillcolor=c_subdomain); s.node('CI', 'Confidence Intervals', fillcolor=c_subdomain); s.node('HT', 'Hypothesis Testing', fillcolor=c_subdomain); s.node('NR', 'Nelson Rules', fillcolor=c_subdomain); s.node('WR', 'Westgard Rules', fillcolor=c_subdomain); s.node('PC', 'Process Capability', fillcolor=c_subdomain); s.node('CC', 'Control Charts', fillcolor=c_subdomain)
+    with dot.subgraph() as s:
+        s.attr(rank='same'); s.node('PE', 'Proportion Estimates', fillcolor=c_tool); s.node('PP', 'Posterior Probabilities', fillcolor=c_tool); s.node('ZME', 'Z-score / Margin of Error', fillcolor=c_tool); s.node('TAV', 'T-tests / ANOVA', fillcolor=c_tool); s.node('MQA', 'Manufacturing QA', fillcolor=c_tool); s.node('CL', 'Clinical Labs', fillcolor=c_tool); s.node('CSM', 'CUSUM', fillcolor=c_tool); s.node('EWM', 'EWMA', fillcolor=c_tool); s.node('SWH', 'Shewhart Charts', fillcolor=c_tool); s.node('ML', 'Machine Learning', fillcolor=c_tool); s.node('CT', 'Clinical Trials', fillcolor=c_tool); s.node('QE', 'Quality Engineering', fillcolor=c_tool)
+
+    dot.edges([('IE', 'SPC'), ('ST', 'SPC'), ('ST', 'SI'), ('BS', 'SI'), ('DS', 'SI'), ('DS', 'ML')]); dot.edges([('BS', 'CT'), ('IE', 'QE')]); dot.edges([('SPC', 'CC'), ('SPC', 'PC'), ('SPC', 'QE')]); dot.edges([('SI', 'HT'), ('SI', 'CI'), ('SI', 'BAY'), ('SI', 'WR'), ('SI', 'NR'), ('SI', 'CT'), ('SI', 'ML')]); dot.edges([('CC', 'SWH'), ('CC', 'EWM'), ('CC', 'CSM')]); dot.edges([('PC', 'MQA')]); dot.edges([('WR', 'CL')]); dot.edges([('NR', 'MQA')]); dot.edges([('HT', 'TAV')]); dot.edges([('CI', 'ZME'), ('CI', 'WS')]); dot.edges([('BAY', 'PP')]); dot.edges([('WS', 'PE')])
+    
+    output_filename = 'conceptual_map'
+    dot.render(output_filename, format='png', cleanup=True)
+    return f"{output_filename}.png"
 
 def wilson_score_interval(p_hat, n, z=1.96):
     if n == 0: return (0, 1)
@@ -75,10 +69,11 @@ def wilson_score_interval(p_hat, n, z=1.96):
     term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2)))
     return (term1 - term2) / denom, (term1 + term2) / denom
 
+# ... (All 15 plotting functions are included here, unabridged, with their Plotly implementations) ...
 # ==============================================================================
 # PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
 # ==============================================================================
-# All 15 plotting functions are included here, unabridged, with their Plotly implementations.
+# Note: Functions now return key metrics where applicable for display in the UI.
 
 def plot_gage_rr():
     np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
@@ -104,11 +99,39 @@ def plot_method_comparison():
     np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x-x_mean)**2); Sxy = np.sum((x-x_mean)*(y-y_mean)); beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; diff = y - x; mean_diff = np.mean(diff); upper_loa = mean_diff + 1.96*np.std(diff,ddof=1); lower_loa = mean_diff - 1.96*np.std(diff,ddof=1)
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot")); fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2); fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
 
-def plot_robustness():
-    data = {'Temp': [-1, 1, -1, 1, -1, 1, -1, 1], 'pH': [-1, -1, 1, 1, -1, -1, 1, 1], 'Time': [-1, -1, -1, -1, 1, 1, 1, 1]}; df = pd.DataFrame(data); df['Response'] = 100 + 5*df['Temp'] - 2*df['pH'] + 1.5*df['Time'] - 3*df['Temp']*df['pH'] + np.random.normal(0, 1, 8); model = ols('Response ~ Temp * pH * Time', data=df).fit(); effects = model.params.iloc[1:]; effects = effects.sort_values(key=abs, ascending=False)
-    fig = make_subplots(rows=2, cols=1, subplot_titles=("Pareto Plot of Standardized Effects", "Significant Interaction Plot: Temp * pH")); fig.add_trace(go.Bar(y=effects.index, x=effects.values, orientation='h'), row=1, col=1); df_int = df.groupby(['Temp', 'pH'])['Response'].mean().reset_index()
-    for p_val, sub_df in df_int.groupby('pH'): fig.add_trace(go.Scatter(x=sub_df['Temp'], y=sub_df['Response'], mode='lines+markers', name=f"pH = {'High' if p_val==1 else 'Low'}"), row=2, col=1)
-    fig.update_layout(title_text='Assay Robustness (Design of Experiments)', height=700, showlegend=True); fig.update_xaxes(title_text="Effect Magnitude", row=1, col=1); fig.update_xaxes(title_text="Temperature", tickvals=[-1, 1], ticktext=['Low', 'High'], row=2, col=1); fig.update_yaxes(title_text="Assay Response", row=2, col=1); return fig
+def plot_robustness_rsm():
+    # Central Composite Design data generation
+    np.random.seed(42)
+    factors = {'Temp': [-1, 1, -1, 1, -1.414, 1.414, 0, 0, 0, 0, 0, 0, 0], 'pH': [-1, -1, 1, 1, 0, 0, -1.414, 1.414, 0, 0, 0, 0, 0]}
+    df = pd.DataFrame(factors)
+    center_points = pd.DataFrame({'Temp': [0]*5, 'pH': [0]*5})
+    df = pd.concat([df.iloc[:4], df.iloc[4:8], df.iloc[8:]], ignore_index=True) # Reorder for clarity
+    
+    # Quadratic Response Surface Model
+    df['Response'] = 95 - 5*df['Temp'] + 2*df['pH'] - 4*(df['Temp']**2) - 2*(df['pH']**2) + 3*df['Temp']*df['pH'] + np.random.normal(0, 1.5, len(df))
+    model = ols('Response ~ Temp + pH + I(Temp**2) + I(pH**2) + Temp:pH', data=df).fit()
+    
+    # Create grid for contour/surface plots
+    temp_range = np.linspace(-2, 2, 50)
+    ph_range = np.linspace(-2, 2, 50)
+    grid_temp, grid_ph = np.meshgrid(temp_range, ph_range)
+    grid_df = pd.DataFrame({'Temp': grid_temp.ravel(), 'pH': grid_ph.ravel()})
+    grid_df['Predicted_Response'] = model.predict(grid_df)
+    predicted_response_grid = grid_df['Predicted_Response'].values.reshape(50, 50)
+
+    # Pareto Plot (from original DOE)
+    doe_data = {'Temp': [-1, 1, -1, 1], 'pH': [-1, -1, 1, 1]}; doe_df = pd.DataFrame(doe_data); doe_df['Response'] = 95 - 5*doe_df['Temp'] + 2*doe_df['pH'] + 3*doe_df['Temp']*doe_df['pH'] + np.random.normal(0, 1.5, 4)
+    doe_model = ols('Response ~ Temp * pH', data=doe_df).fit(); effects = doe_model.params.iloc[1:].sort_values(key=abs, ascending=False)
+    
+    # Create figures
+    fig_pareto = px.bar(x=effects.values, y=effects.index, orientation='h', title="Pareto Plot of Factor Effects")
+    fig_contour = go.Figure(data=go.Contour(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis', contours=dict(coloring='lines', showlabels=True)))
+    fig_contour.add_trace(go.Scatter(x=df['Temp'], y=df['pH'], mode='markers', marker=dict(color='red', size=8), name='Design Points'))
+    fig_contour.update_layout(title="2D Contour Plot of Response Surface", xaxis_title="Temperature (coded units)", yaxis_title="pH (coded units)")
+    fig_surface = go.Figure(data=[go.Surface(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis')])
+    fig_surface.update_layout(title='3D Response Surface Plot', scene=dict(xaxis_title="Temperature", yaxis_title="pH", zaxis_title="Assay Response"))
+    
+    return fig_pareto, fig_contour, fig_surface
 
 def plot_shewhart():
     np.random.seed(42); in_control = np.random.normal(100.0, 2.0, 15); reagent_shift = np.random.normal(108.0, 2.0, 10); data = np.concatenate([in_control, reagent_shift]); x = np.arange(1, len(data) + 1); mean = np.mean(data[:15]); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr[:14]); sigma_est = mr_mean / 1.128; UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est; out_of_control_I = np.where((data > UCL_I) | (data < LCL_I))[0]; UCL_MR = mr_mean * 3.267
@@ -130,12 +153,12 @@ def plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma):
         if len(out_idx) > 0: fig.add_trace(go.Scatter(x=[x_axis[out_idx[0]]], y=[SH[out_idx[0]]], mode='markers', marker=dict(color='red', size=15, symbol='x'), name='Signal'))
     fig.add_vrect(x0=25.5, x1=40.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="Process Shift"); fig.add_hline(y=target if chart_type=='EWMA' else 0, line_dash="dot", line_color="black", annotation_text="Target"); fig.update_layout(height=600, xaxis_title='Analytical Run Number'); return fig
 
-def plot_multi_rule(rule_set='Westgard'):
+def plot_multi_rule():
     np.random.seed(3); mean, std = 100, 2; data = np.concatenate([np.random.normal(mean, std, 5), [mean + 2.1*std, mean + 2.2*std], np.random.normal(mean, std, 2), np.linspace(mean-0.5*std, mean-2*std, 6), [mean + 3.5*std], np.random.normal(mean + 1.5*std, 0.3, 4), np.random.normal(mean, std, 3), np.random.normal(mean - 1.5*std, 0.3, 5)]); x = np.arange(1, len(data) + 1); fig = go.Figure(); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='QC Sample', line=dict(color='darkblue')));
     for i, color in zip([1, 2, 3], ['gold', 'orange', 'red']):
         fig.add_hrect(y0=mean+i*std, y1=mean+(i+1)*std, fillcolor=color, opacity=0.1, layer="below", line_width=0); fig.add_hrect(y0=mean-i*std, y1=mean-(i+1)*std, fillcolor=color, opacity=0.1, layer="below", line_width=0)
         fig.add_hline(y=mean+i*std, line_dash="dot", line_color="gray", annotation_text=f"+{i}σ"); fig.add_hline(y=mean-i*std, line_dash="dot", line_color="gray", annotation_text=f"-{i}σ")
-    fig.add_hline(y=mean, line_dash="dash", line_color="black", annotation_text="Mean"); fig.update_layout(title_text='QC Run Validation Chart', xaxis_title='QC Run Number', yaxis_title='Measured Value', height=600); return fig
+    fig.add_hline(y=mean, line_dash="dash", line_color="black", annotation_text="Mean"); fig.update_layout(title_text='QC Run Validation Chart (Levey-Jennings)', xaxis_title='QC Run Number', yaxis_title='Measured Value', height=600); return fig
 
 def plot_capability(Cpk_target):
     np.random.seed(42); LSL, USL = 90, 110; process_mean = 101; process_std = (USL - LSL) / (6 * Cpk_target); data = np.random.normal(process_mean, process_std, 200); sigma_hat = np.std(data, ddof=1); Cpu = (USL - data.mean()) / (3 * sigma_hat); Cpl = (data.mean() - LSL) / (3 * sigma_hat); Cpk = np.min([Cpu, Cpl]); fig = px.histogram(data, nbins=30, histnorm='probability density', marginal='rug'); fig.add_vline(x=LSL, line_dash="dash", line_color="red", annotation_text="LSL"); fig.add_vline(x=USL, line_dash="dash", line_color="red", annotation_text="USL"); fig.add_vline(x=data.mean(), line_dash="dot", line_color="black", annotation_text="Mean"); color = "darkgreen" if Cpk >= 1.33 else "darkred"; fig.add_annotation(text=f"Cpk = {Cpk:.2f}", align='left', showarrow=False, xref='paper', yref='paper', x=0.05, y=0.95, bordercolor="black", borderwidth=1, bgcolor=color, font=dict(color="white")); fig.update_layout(title_text='Process Capability Analysis (Cpk)', height=600); return fig, Cpk
@@ -182,7 +205,17 @@ def plot_ci_concept():
 st.title("🔬 An Interactive Guide to Assay Transfer Statistics")
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore the statistical methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
-st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
+st.info("⚠️ **Note:** To display the conceptual map below, this app uses Graphviz. If the map does not appear, you may need to install the Graphviz system software. See the README for your operating system.")
+try:
+    if not os.path.exists('conceptual_map.png'):
+        with st.spinner("Generating conceptual map..."):
+            create_conceptual_map_graphviz()
+    st.image("conceptual_map.png", caption="A hierarchical map showing the relationship between academic disciplines, core domains, and the specific tools covered in this guide.", use_container_width=True)
+except Exception as e:
+    st.error(f"Could not render the Graphviz conceptual map. This usually means the Graphviz system software is not installed or not in the system's PATH. Error: {e}")
+    st.markdown("Please see the installation instructions for your OS. As a fallback, here is a simplified map rendered with Plotly:")
+    st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
+
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
 
@@ -191,7 +224,7 @@ st.sidebar.title("Toolkit Navigation")
 st.sidebar.markdown("Select a statistical method to analyze and visualize.")
 method_key = st.sidebar.radio("Select a Method:", options=[
     "1. Gage R&R", "2. Linearity and Range", "3. LOD & LOQ", "4. Method Comparison",
-    "5. Assay Robustness (DOE)", "6. Process Stability (Shewhart)", "7. Small Shift Detection",
+    "5. Assay Robustness (DOE/RSM)", "6. Process Stability (Shewhart)", "7. Small Shift Detection",
     "8. Run Validation", "9. Process Capability (Cpk)", "10. Anomaly Detection (ML)",
     "11. Predictive QC (ML)", "12. Control Forecasting (AI)", "13. Pass/Fail Analysis",
     "14. Bayesian Inference", "15. Confidence Interval Concept"
@@ -199,6 +232,7 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 st.header(method_key)
 
 # --- Dynamic Content Display ---
+
 if "Gage R&R" in method_key:
     st.markdown("**Objective:** Before evaluating a process, you must first validate the measurement system. A Gage R&R study quantifies the inherent variability (error) of the assay, partitioning it into components like repeatability and reproducibility.")
     col1, col2 = st.columns([0.7, 0.3]);
@@ -236,13 +270,22 @@ elif "Method Comparison" in method_key:
             st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **Deming:** Slope CI should contain 1; Intercept CI should contain 0."); st.markdown(f"- **Bland-Altman:** >95% of points must be within the Limits of Agreement. The LoA width (`{la:.2f}` to `{ua:.2f}`) must be practically acceptable.")
 
 elif "Assay Robustness" in method_key:
-    st.markdown("**Objective:** To proactively assess the assay's performance when small, deliberate changes are made to its input parameters (e.g., temperature, pH), identifying which factors are most critical to control.")
-    col1, col2 = st.columns([0.7, 0.3])
-    with col1: st.plotly_chart(plot_robustness(), use_container_width=True)
-    with col2:
-        with st.container(border=True):
-            st.subheader("Key Insights & Acceptance"); st.markdown("- **Pareto Plot:** Ranks factors by their impact, focusing control efforts on the 'vital few'."); st.markdown("- **Interaction Plot:** Non-parallel lines reveal complex relationships that must be controlled.")
-            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- The study must prove that **small, expected parameter variations do NOT significantly impact results**. If a factor is significant, its operating range in the SOP must be tightened.")
+    st.markdown("**Objective:** To proactively identify which assay parameters (e.g., temperature, pH) have the biggest impact on results and to find the optimal operating region. This is done by deliberately varying parameters in a structured experiment.")
+    tab1, tab2, tab3 = st.tabs(["📊 Pareto Plot (Screening)", "📈 2D Contour Plot (Optimization)", "🧊 3D Surface Plot (Visualization)"])
+    fig_pareto, fig_contour, fig_surface = plot_robustness_rsm()
+    with tab1:
+        st.markdown("A **Screening Design (like a Fractional Factorial)** is used first to identify the 'vital few' parameters that have a significant effect on the assay response. The Pareto plot is the primary output.")
+        st.plotly_chart(fig_pareto, use_container_width=True)
+    with tab2:
+        st.markdown("After identifying the key factors, a **Response Surface Methodology (RSM) design (like a Central Composite Design)** is used to model the relationship in detail. The 2D contour plot helps identify the optimal operating conditions (the 'peak' or 'valley' of the response).")
+        st.plotly_chart(fig_contour, use_container_width=True)
+    with tab3:
+        st.markdown("The 3D surface plot provides an intuitive visualization of the response surface, making it easy to see how the factors interact to affect the assay outcome.")
+        st.plotly_chart(fig_surface, use_container_width=True)
+    with st.expander("Interpretation & Acceptance Criteria"):
+        st.markdown("""- **Screening (Pareto Plot):** Any factor whose effect bar crosses a significance threshold (not shown for simplicity) is considered a critical parameter that must be tightly controlled. The goal is to prove most factors are *not* significant, demonstrating robustness.
+- **Optimization (Contour/Surface Plots):** These plots reveal the "sweet spot" for the assay.
+- **Acceptance Rule:** The outcome is knowledge for setting control limits. The goal is to define an **operating space** (a region on the contour plot) where the assay is known to be robust and reliable, and to set SOP limits well within this space.""")
 
 elif "Process Stability" in method_key:
     st.markdown("**Objective:** To demonstrate that the assay can be run in a stable and predictable manner at the receiving site, monitoring both accuracy (mean) and precision (variability).")
@@ -265,7 +308,7 @@ elif "Small Shift Detection" in method_key:
 
 elif "Run Validation" in method_key:
     st.markdown("**Objective:** To create an objective, statistically-driven system for accepting or rejecting each analytical run based on QC sample performance.")
-    st.plotly_chart(plot_multi_rule("Westgard"), use_container_width=True)
+    st.plotly_chart(plot_multi_rule(), use_container_width=True)
     st.subheader("Standard Industry Rule Sets")
     tab1, tab2, tab3 = st.tabs(["✅ Westgard Rules", "✅ Nelson Rules", "✅ Western Electric Rules"])
     with tab1: st.markdown("""Developed for lab QC, vital for CLIA, CAP, ISO 15189 compliance. A run is rejected if a "Rejection Rule" is violated.
@@ -283,7 +326,11 @@ elif "Run Validation" in method_key:
 | 1. One point > 3σ | Sudden shift or outlier |
 | 2. 9 points on same side of mean | Mean shift |
 | 3. 6 points increasing or decreasing | Trend |
-| 4. 14 points alternating up/down | Systematic oscillation |""")
+| 4. 14 points alternating up/down | Systematic oscillation |
+| 5. 2 of 3 > 2σ (same side) | Moderate shift |
+| 6. 4 of 5 > 1σ (same side) | Small persistent shift |
+| 7. 15 points inside ±1σ | Reduced variation |
+| 8. 8 points outside ±1σ | Increased variation |""")
     with tab3: st.markdown("""Foundational rules from which many other systems were derived.
 | Rule | Interpretation |
 |---|---|
