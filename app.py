@@ -1508,11 +1508,31 @@ elif "Assay Robustness (DOE/RSM)" in method_key:
             st.markdown("- **Screening:** Any factor whose effect bar crosses the significance threshold is considered a **critical parameter**. The acceptance rule is that the final SOP must include tighter controls for these parameters.")
             st.markdown("- **Optimization:** The goal is to define a **Design Space** or **Normal Operating Range (NOR)**—a region on the contour plot where the assay is proven to be robust and reliable. The final process parameters should be set well within this space, far from any steep 'cliffs'.")
         with tab3:
-            st.markdown("**Origin:** Design of Experiments (DOE) was pioneered by Sir R.A. Fisher. Response Surface Methodology (RSM) was developed by Box and Wilson to efficiently model and optimize processes.")
-            st.markdown("**Mathematical Basis:** RSM fits a second-order (quadratic) model to the experimental data, which can capture curvature in the response:")
-            st.latex("y = \\beta_0 + \\sum \\beta_i x_i + \\sum \\beta_{ii} x_i^2 + \\sum \\beta_{ij} x_i x_j + \\epsilon")
-            
-# Replace the ENTIRE 'elif "Process Stability" in method_key:' block with this one.
+    st.markdown("""
+    #### Origin and Development
+
+    **The Agricultural Revolution (DOE):** The foundation of modern DOE was single-handedly pioneered by the legendary British statistician **Sir Ronald A. Fisher** in the 1920s and 1930s. Working at the Rothamsted Agricultural Experimental Station, he was faced with a complex problem: how to test the effect of multiple factors (like fertilizer type, seed variety, watering schedules) on crop yield when the underlying experimental material (plots of land) was inherently variable. His solution was revolutionary: instead of testing one factor at a time, he developed **factorial designs** to test multiple factors simultaneously in a structured way. This not only saved immense time and resources but, crucially, was the only way to systematically study **interactions**—the way the effect of one factor changes depending on the level of another. His work, published in his seminal 1935 book "The Design of Experiments," laid the groundwork for a century of scientific and industrial progress.
+
+    **The Chemical Revolution (RSM):** In the 1950s, working in the chemical industry at Imperial Chemical Industries (ICI), statisticians **George E. P. Box and K. B. Wilson** built upon Fisher's work to solve a new problem: not just identifying which factors were important, but finding the *optimal settings* for those factors to maximize a response (like chemical yield). They developed **Response Surface Methodology (RSM)**, a sequential approach that uses an initial screening DOE to identify key factors, followed by a more detailed "optimizing" design (like the Central Composite Design shown in the plots) to model the curvature in the response. This allowed them to mathematically "map" the process and find the peak of the mountain, a task that was previously done through expensive and inefficient trial and error.
+
+    ---
+    
+    #### Mathematical Basis
+
+    **DOE (Screening):**
+    A 2-level factorial design is used to estimate the main effects of factors and their interactions by fitting a linear model. For two factors, Temperature ($X_1$) and pH ($X_2$), the model is:
+    """)
+    st.latex(r"y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_{12} X_1 X_2 + \epsilon")
+    st.markdown("""
+    Where the coefficients ($\beta$) are calculated from the experimental results and represent the standardized effects. The Pareto plot is a bar chart of these effects, which are tested for statistical significance using ANOVA to separate real effects from random noise.
+
+    **RSM (Optimization):**
+    After identifying the critical factors, RSM is used to model the curvature of the response surface. This requires adding center and axial points to the design to allow for the estimation of quadratic terms. The model is expanded to a second-order polynomial:
+    """)
+    st.latex(r"y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_{11} X_1^2 + \beta_{22} X_2^2 + \beta_{12} X_1 X_2 + \epsilon")
+    st.markdown("""
+    This equation describes the 3D surface shown in the plot. By taking the partial derivatives of this equation with respect to each factor and setting them to zero, we can mathematically solve for the exact settings ($X_1, X_2$) that correspond to the maximum (or minimum) response, thereby finding the process's optimal point.
+    """)
 
 elif "Process Stability" in method_key:
     st.markdown("""
