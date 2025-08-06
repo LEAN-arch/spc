@@ -77,33 +77,120 @@ def plot_method_comparison():
 def plot_robustness_rsm():
     # --- Data Generation ---
     np.random.seed(42)
-    # Screening Design Data (for Pareto)
-    doe_data = {'Temp': [-1, 1, -1, 1], 'pH': [-1, -1, 1, 1]}; doe_df = pd.DataFrame(doe_data); doe_df['Response'] = 95 - 5*doe_df['Temp'] + 2*doe_df['pH'] + 3*doe_df['Temp']*doe_df['pH'] + np.random.normal(0, 1.5, 4); 
-    doe_model = ols('Response ~ Temp * pH', data=doe_df).fit(); effects = doe_model.params.iloc[1:].sort_values(key=abs, ascending=False); p_values = doe_model.pvalues.iloc[1:]
+    # This simulates a Central Composite Design, which is excellent for RSM
+    factors = {'Temp': [-1, 1, -1, 1, -1.414, 1.414, 0, 0, 0, 0, 0, 0, 0], 'pH': [-1, -1, 1, 1, 0, 0, -1.414, 1.414, 0, 0, 0, 0, 0]}
+    df = pd.DataFrame(factors)
+    # A more complex quadratic response surface model for a richer visualization
+    df['Response'] = 95 - 5*df['Temp'] + 2*df['pH'] - 4*(df['Temp']**2) - 2*(df['pH']**2) + 3*df['Temp']*df['pH'] + np.random.normal(0, 1.5, len(df))
     
-    # RSM Design Data (for Surfaces)
-    factors = {'Temp': [-1, 1, -1, 1, -1.414, 1.414, 0, 0, 0, 0, 0, 0, 0], 'pH': [-1, -1, 1, 1, 0, 0, -1.414, 1.414, 0, 0, 0, 0, 0]}; 
-    df = pd.DataFrame(factors); df['Response'] = 95 - 5*df['Temp'] + 2*df['pH'] - 4*(df['Temp']**2) - 2*(df['pH']**2) + 3*df['Temp']*df['pH'] + np.random.normal(0, 1.5, len(df)); 
-    rsm_model = ols('Response ~ Temp + pH + I(Temp**2) + I(pH**2) + Temp:pH', data=df).fit();
+    # Fit the full quadratic model for RSM
+    rsm_model = ols('Response ~ Temp + pH + I(Temp**2) + I(pH**2) + Temp:pH', data=df).fit()
     
-    # --- Figure 1: Pareto Plot ---
-    effect_data = pd.DataFrame({'effect': effects.values, 'p_value': p_values[effects.index]}); effect_data['color'] = np.where(effect_data['p_value'] < 0.05, 'salmon', 'skyblue') # Color by significance
-    fig_pareto = px.bar(effect_data, x='effect', y=effects.index, orientation='h', title="Pareto Plot of Factor Effects", text=np.round(effects.values, 2))
-    fig_pareto.update_traces(marker_color=effect_data['color'])
-    fig_pareto.update_layout(yaxis={'categoryorder':'total ascending'})
+    # --- Figure 1: World-Class Pareto Plot ---
+    # We use a simpler screening model to get the main effects for the Pareto chart
+    screening_model = ols('Response ~ Temp * pH', data=df).fit()
+    effects = screening_model.params.iloc[1:].sort_values(key=abs, ascending=False)
+    p_values = screening_model.pvalues.iloc[1:][effects.index]
+    
+    effect_data = pd.DataFrame({'Effect': effects.index, 'Value': effects.values, 'p_value': p_values})
+    effect_data['color'] = np.where(effect_data['p_value'] < 0.05, 'salmon', 'skyblue') # Color by significance
+    # T-value for significance line (example, typically from a t-distribution)
+    t_crit = stats.t.ppf(1 - 0.05 / 2, df=screening_model.df_resid)
+    # A simplified significance threshold for visual effect
+    significance_threshold = np.abs(effects.values).mean() * 1.5 
 
-    # --- Figures 2 & 3: RSM Plots ---
-    temp_range = np.linspace(-2, 2, 50); ph_range = np.linspace(-2, 2, 50); grid_temp, grid_ph = np.meshgrid(temp_range, ph_range); 
-    grid_df = pd.DataFrame({'Temp': grid_temp.ravel(), 'pH': grid_ph.ravel()}); grid_df['Predicted_Response'] = rsm_model.predict(grid_df); 
+
+    fig_pareto = px.bar(
+        effect_data, 
+        x='Value', 
+        y='Effect', 
+        orientation='h', 
+        title="<b>Pareto Plot of Factor Effects</b>",
+        text=np.round(effect_data['Value'], 2),
+        labels={'Value': 'Standardized Effect Magnitude', 'Effect': 'Factor or Interaction'},
+        custom_data=['p_value']
+    )
+    fig_pareto.update_traces(
+        marker_color=effect_data['color'],
+        hovertemplate="<b>%{y}</b><br>Effect Value: %{x:.3f}<br>P-value: %{customdata[0]:.3f}<extra></extra>"
+    )
+    fig_pareto.add_vline(x=significance_threshold, line_dash="dash", line_color="red", annotation_text="Significance Threshold")
+    fig_pareto.add_vline(x=-significance_threshold, line_dash="dash", line_color="red")
+    fig_pareto.update_layout(yaxis={'categoryorder':'total ascending'}, title_x=0.5)
+
+    # --- Figures 2 & 3: World-Class RSM Plots ---
+    temp_range = np.linspace(-2, 2, 50); ph_range = np.linspace(-2, 2, 50)
+    grid_temp, grid_ph = np.meshgrid(temp_range, ph_range)
+    grid_df = pd.DataFrame({'Temp': grid_temp.ravel(), 'pH': grid_ph.ravel()})
+    grid_df['Predicted_Response'] = rsm_model.predict(grid_df)
     predicted_response_grid = grid_df['Predicted_Response'].values.reshape(50, 50)
     
-    fig_contour = go.Figure(data=go.Contour(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis', contours=dict(coloring='lines', showlabels=True))); 
-    fig_contour.add_trace(go.Scatter(x=df['Temp'], y=df['pH'], mode='markers', marker=dict(color='red', size=8, symbol='x'), name='Design Points'))
-    fig_contour.update_layout(title="2D Contour Plot of Response Surface", xaxis_title="Temperature (coded units)", yaxis_title="pH (coded units)")
-    
-    fig_surface = go.Figure(data=[go.Surface(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis')]); 
-    fig_surface.add_trace(go.Scatter3d(x=df['Temp'], y=df['pH'], z=df['Response'], mode='markers', marker=dict(color='red', size=5), name='Design Points'))
-    fig_surface.update_layout(title='3D Response Surface Plot', scene=dict(xaxis_title="Temperature", yaxis_title="pH", zaxis_title="Assay Response"))
+    # Find optimal point
+    opt_idx = grid_df['Predicted_Response'].idxmax()
+    opt_temp, opt_ph, opt_response = grid_df.loc[opt_idx]
+
+    # --- Figure 2: Publication-Quality 2D Contour Plot ---
+    fig_contour = go.Figure(data=go.Contour(
+        z=predicted_response_grid, x=temp_range, y=ph_range, 
+        colorscale='Viridis',
+        contours=dict(coloring='lines', showlabels=True, labelfont=dict(size=12, color='white')),
+        line=dict(width=2),
+        hoverinfo='x+y+z'
+    ))
+    fig_contour.add_trace(go.Scatter(
+        x=df['Temp'], y=df['pH'], mode='markers', 
+        marker=dict(color='white', size=10, symbol='x', line=dict(color='black', width=2)), 
+        name='Design Points',
+        hovertemplate="Temp: %{x:.2f}<br>pH: %{y:.2f}<extra></extra>"
+    ))
+    fig_contour.add_trace(go.Scatter(
+        x=[opt_temp], y=[opt_ph], mode='markers',
+        marker=dict(color='red', size=16, symbol='star', line=dict(color='white', width=2)),
+        name='Optimal Point',
+        hovertemplate=f"<b>Optimal Point</b><br>Temp: {opt_temp:.2f}<br>pH: {opt_ph:.2f}<br>Response: {opt_response:.2f}<extra></extra>"
+    ))
+    fig_contour.update_layout(
+        title="<b>2D Contour Plot of Response Surface</b>", 
+        xaxis_title="Temperature (coded units)", 
+        yaxis_title="pH (coded units)",
+        title_x=0.5,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+    )
+
+    # --- Figure 3: Immersive 3D Surface Plot ---
+    fig_surface = go.Figure(data=[go.Surface(
+        z=predicted_response_grid, x=temp_range, y=ph_range, 
+        colorscale='Viridis',
+        contours = {
+            "x": {"show": True, "start": -2, "end": 2, "size": 0.5, "color":"white"},
+            "y": {"show": True, "start": -2, "end": 2, "size": 0.5, "color":"white"},
+            "z": {"show": True, "start": predicted_response_grid.min(), "end": predicted_response_grid.max(), "size": 5}
+        },
+        hoverinfo='x+y+z'
+    )])
+    fig_surface.add_trace(go.Scatter3d(
+        x=df['Temp'], y=df['pH'], z=df['Response'], 
+        mode='markers', 
+        marker=dict(color='red', size=5, symbol='diamond'), 
+        name='Design Points'
+    ))
+    fig_surface.add_trace(go.Scatter3d(
+        x=[opt_temp], y=[opt_ph], z=[opt_response],
+        mode='markers',
+        marker=dict(color='yellow', size=10, symbol='star'),
+        name='Optimal Point'
+    ))
+    fig_surface.update_layout(
+        title='<b>3D Response Surface Plot</b>', 
+        scene=dict(
+            xaxis_title="Temperature", 
+            yaxis_title="pH", 
+            zaxis_title="Assay Response",
+            camera=dict(eye=dict(x=1.8, y=-1.8, z=1.5))
+        ),
+        margin=dict(l=0, r=0, b=0, t=40),
+        title_x=0.5
+    )
     
     return fig_pareto, fig_contour, fig_surface, effects
     
