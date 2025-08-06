@@ -1339,7 +1339,7 @@ if "Gage R&R" in method_key:
     
     **Definition:** A Gage R&R study partitions the total observed variation into two main sources: the variation from the parts being measured and the variation from the measurement system. The measurement system variation is further broken down into **Repeatability** (equipment variation) and **Reproducibility** (operator variation).
     
-    **Application:** This is the first and most critical gate in an assay transfer. You cannot validate a process with an unreliable measurement system.
+    **Application:** This is the first and most critical checkpoint in an assay transfer. A process cannot be validated using an unreliable measurement system. Before addressing process variation, it is essential to demonstrate that the assay itself is accurate, precise, and reliable.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
