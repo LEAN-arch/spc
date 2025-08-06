@@ -1290,7 +1290,7 @@ def plot_ci_concept(n=30):
 # ==============================================================================
 # MAIN APP LAYOUT
 # ==============================================================================
-st.title("🛠️ The Guild: An Interactive Guide to V&V and Tech Transfer Using Tools from Statistics and Machine Learning.")
+st.title("🛠️ An Interactive Guide to V&V and Tech Transfer Using Tools from Statistics and Machine Learning.")
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that help support a robust V&V, tech transfer, and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
 st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
@@ -1298,23 +1298,22 @@ st.markdown("This map illustrates how foundational **Academic Disciplines** like
 st.divider()
 
 st.header("The Scientist's/Engineer's Journey: A Three-Act Story")
-st.markdown("""In the world of quality and development, during v&v, and tech transfer, our story always has the same **Hero**: the dedicated scientist, engineer, or analyst. And it always has the same **Villain**: insidious, hidden, and costly **Variation**.
-This toolkit is structured as a three-act journey to empower you to conquer the villain. Each method is a tool, a weapon, or a new sense to perceive and control the variation affecting your processes.""")
+st.markdown("""In the world of quality and development, particularly during verification, validation (V&V), and tech transfer, the challenges are often complex, high-stakes, and hidden in the details. This interactive toolkit is structured as a three-act journey to help you navigate these phases with clarity, precision, and confidence. Each method included is a practical tool to observe, understand, and control variation within your processes.""")
 act1, act2, act3 = st.columns(3)
-with act1: st.subheader("Act I: Know Thyself (The Foundation)"); st.markdown("Before the battle, the Hero must understand their own strengths and weaknesses. What is the true capability of their measurement system? What are its limits? This is the foundational work of **Characterization and Validation**.")
-with act2: st.subheader("Act II: The Transfer (The Crucible)"); st.markdown("The Hero's validated method must now survive in a new land—the receiving QC lab. This is the ultimate test of **Robustness, Stability, and Comparability**. It is here that many battles with Variation are won or lost.")
-with act3: st.subheader("Act III: The Guardian (Beyond the Transfer)"); st.markdown("The assay is live, but the Villain never sleeps. The Hero must now become a guardian, using advanced tools to **Monitor, Predict, and Protect** the process for its entire lifecycle, anticipating problems before they arise.")
+with act1: st.subheader("Act I: Know Thyself (The Foundation)"); st.markdown("Before any transfer or scale-up, it's critical to understand the capability and limits of your current measurement systems and methods. This phase focuses on characterization and validation — building a strong foundation of data integrity and analytical understanding.")
+with act2: st.subheader("Act II: The Transfer (The Crucible)"); st.markdown("In this phase, a validated method must prove its robustness in a new environment — typically the receiving QC lab. This is the key moment to assess method transferability, stability, and comparability under operational conditions.")
+with act3: st.subheader("Act III: The Guardian (Beyond the Transfer)"); st.markdown("Once the method is live, continuous monitoring becomes essential. This act focuses on lifecycle management using advanced tools to detect signals, predict deviations, and maintain process control over time.")
 
 
 # --- V&V Model and Narrative Introduction ---
-st.subheader("The V&V Model: The Hero's Map")
+st.subheader("The V&V Model: A Strategic Framework")
 st.markdown("""
-The **Verification & Validation (V&V) Model**, shown below, is the universally accepted strategic framework that serves as the map for our Hero's journey. It applies to any technology transfer, whether it's an **assay, instrument, process, or software**.
+The **Verification & Validation (V&V) Model**, shown below, provides a structured, widely accepted framework for technology transfer. It applies across domains — whether you're transferring an **assay, instrument, process, or software**.
 
-- **The Left Side (Verification - "Are we building it right?"):** This is the journey *down* into the details, building a solid foundation.
-- **The Right Side (Validation - "Did we build the right thing?"):** This is the journey *up* to prove that the system meets the original needs.
+- **The Left Side (Verification - "Are we building it right?"):** Digging into technical foundations, ensuring systems meet predefined specifications.
+- **The Right Side (Validation - "Did we build the right thing?"):** Confirming that the final product or process fulfills its intended use.
 
-The tools in this toolkit are the specific steps you take to conquer each stage of this map. **Hover over a stage in the diagram to learn more.**
+Each stage of this model corresponds to specific tools and actions presented in the toolkit. **Hover over a stage in the diagram to learn more.**
 """)
 
 fig_v_model, v_model_stages = plot_v_model()
