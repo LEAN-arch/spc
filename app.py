@@ -16,7 +16,7 @@ from prophet.plot import plot_plotly, plot_components_plotly
 # ==============================================================================
 # APP CONFIGURATION
 # ==============================================================================
-st.set_page_config(layout="wide", page_title="An Interactive Guide to Assay Transfer Statistics", page_icon="📈")
+st.set_page_config(layout="wide", page_title="An Interactive Guide to Biotech Assay Technology Transfer Statistics & ML/AI", page_icon="📈")
 
 st.markdown("""
 <style>
@@ -1116,8 +1116,6 @@ def plot_bayesian(prior_type):
     )
     
     return fig, prior_mean, observed_rate, posterior_mean
-    
-    return fig, prior_mean, observed_rate, posterior_mean
 
 def plot_ci_concept(n=30):
     # --- Data Generation ---
@@ -1214,14 +1212,14 @@ def plot_ci_concept(n=30):
 # ==============================================================================
 # MAIN APP LAYOUT
 # ==============================================================================
-st.title("🔬 An Interactive Guide to Assay Transfer Statistics")
-st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore the statistical methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
+st.title("🔬 An Interactive Guide to Biotech Assay Technology Transfer: Statistics, Machine Learning, and AI Applications")
+st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
 st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
-st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
+st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics, Machine Learning, and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
 
-st.header("The Scientist's Journey: A Three-Act Story")
+st.header("The Scientist's/Engineer's Journey: A Three-Act Story")
 st.markdown("""In the world of quality and development, our story always has the same **Hero**: the dedicated scientist, engineer, or analyst. And it always has the same **Villain**: insidious, hidden, and costly **Variation**.
 This toolkit is structured as a three-act journey to empower our Hero to conquer this Villain. Each method is a tool, a weapon, or a new sense to perceive and control the world around them.""")
 act1, act2, act3 = st.columns(3)
