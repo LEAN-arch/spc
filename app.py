@@ -1221,7 +1221,7 @@ st.divider()
 
 st.header("The Scientist's/Engineer's Journey: A Three-Act Story")
 st.markdown("""In the world of quality and development, our story always has the same **Hero**: the dedicated scientist, engineer, or analyst. And it always has the same **Villain**: insidious, hidden, and costly **Variation**.
-This toolkit is structured as a three-act journey to empower our Hero to conquer this Villain. Each method is a tool, a weapon, or a new sense to perceive and control the world around them.""")
+This toolkit is structured as a three-act journey to empower you to conquer the villain. Each method is a tool, a weapon, or a new sense to perceive and control the variation affecting your processes.""")
 act1, act2, act3 = st.columns(3)
 with act1: st.subheader("Act I: Know Thyself (The Foundation)"); st.markdown("Before the battle, the Hero must understand their own strengths and weaknesses. What is the true capability of their measurement system? What are its limits? This is the foundational work of **Characterization and Validation**.")
 with act2: st.subheader("Act II: The Transfer (The Crucible)"); st.markdown("The Hero's validated method must now survive in a new land—the receiving QC lab. This is the ultimate test of **Robustness, Stability, and Comparability**. It is here that many battles with Variation are won or lost.")
