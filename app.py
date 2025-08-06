@@ -1334,7 +1334,7 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 ])
 st.header(method_key)
 
-elif "Gage R&R" in method_key:
+if "Gage R&R" in method_key:
     st.markdown("""
     **Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. 
     
