@@ -629,11 +629,90 @@ def plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma):
     return fig
 
 def plot_multi_rule():
-    np.random.seed(3); mean, std = 100, 2; data = np.concatenate([np.random.normal(mean, std, 5), [mean + 2.1*std, mean + 2.2*std], np.random.normal(mean, std, 2), np.linspace(mean-0.5*std, mean-2*std, 6), [mean + 3.5*std], np.random.normal(mean + 1.5*std, 0.3, 4), np.random.normal(mean, std, 3), np.random.normal(mean - 1.5*std, 0.3, 5)]); x = np.arange(1, len(data) + 1); fig = go.Figure(); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='QC Sample', line=dict(color='darkblue')));
-    for i, color in zip([1, 2, 3], ['gold', 'orange', 'red']):
-        fig.add_hrect(y0=mean+i*std, y1=mean+(i+1)*std, fillcolor=color, opacity=0.1, layer="below", line_width=0); fig.add_hrect(y0=mean-i*std, y1=mean-(i+1)*std, fillcolor=color, opacity=0.1, layer="below", line_width=0)
-        fig.add_hline(y=mean+i*std, line_dash="dot", line_color="gray", annotation_text=f"+{i}σ"); fig.add_hline(y=mean-i*std, line_dash="dot", line_color="gray", annotation_text=f"-{i}σ")
-    fig.add_hline(y=mean, line_dash="dash", line_color="black", annotation_text="Mean"); fig.update_layout(title_text='QC Run Validation Chart (Levey-Jennings)', xaxis_title='QC Run Number', yaxis_title='Measured Value', height=600); return fig
+    # --- Data Generation to trigger specific Westgard rules ---
+    np.random.seed(3)
+    mean, std = 100, 2
+    data = np.array([
+        100.5, 99.8, 101.2, 98.9, 100.2, # In control
+        104.5, 105.1, # 2_2s violation
+        100.1, 99.5, 
+        102.3, 102.8, 103.1, 102.5, # 4_1s violation
+        99.9,
+        106.5, # 1_3s violation
+        100.8, 98.5,
+        104.2, 95.5, # R_4s violation
+        100.0
+    ])
+    x = np.arange(1, len(data) + 1)
+    z_scores = (data - mean) / std
+
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True,
+        subplot_titles=("<b>Levey-Jennings Chart with Westgard Violations</b>", "<b>Distribution of QC Data</b>"),
+        vertical_spacing=0.15, row_heights=[0.7, 0.3]
+    )
+
+    # --- Plot 1: Levey-Jennings Chart ---
+    # Add Shaded Zones
+    for i, color in zip([3, 2, 1], ['#ef9a9a', '#fff59d', '#a5d6a7']): # Red, Yellow, Green
+        fig.add_hrect(y0=mean - i*std, y1=mean + i*std, fillcolor=color, opacity=0.3, layer="below", line_width=0, row=1, col=1)
+    
+    # Add Center and Control Lines
+    for i in [-3, -2, -1, 1, 2, 3]:
+        fig.add_hline(y=mean + i*std, line_dash="dot", line_color="gray", annotation_text=f"{i}s", row=1, col=1)
+    fig.add_hline(y=mean, line_dash="dash", line_color="black", annotation_text="Mean", row=1, col=1)
+
+    # Plot the continuous QC data line
+    fig.add_trace(go.Scatter(
+        x=x, y=data, mode='lines+markers', name='QC Sample',
+        line=dict(color='darkblue'),
+        hovertemplate="Run: %{x}<br>Value: %{y:.2f}<br>Z-Score: %{customdata:.2f}s<extra></extra>",
+        customdata=z_scores
+    ), row=1, col=1)
+
+    # --- Identify and Annotate Violations ---
+    violations = []
+    if np.any(np.abs(z_scores) > 3): # 1_3s
+        idx = np.where(np.abs(z_scores) > 3)[0][0]
+        violations.append({'x': x[idx], 'y': data[idx], 'rule': '1_3s Violation'})
+    for i in range(1, len(z_scores)): # 2_2s
+        if (z_scores[i] > 2 and z_scores[i-1] > 2) or (z_scores[i] < -2 and z_scores[i-1] < -2):
+            violations.append({'x': x[i], 'y': data[i], 'rule': '2_2s Violation'})
+    for i in range(3, len(z_scores)): # 4_1s
+        if np.all(z_scores[i-3:i+1] > 1) or np.all(z_scores[i-3:i+1] < -1):
+             violations.append({'x': x[i], 'y': data[i], 'rule': '4_1s Violation'})
+    for i in range(1, len(z_scores)): # R_4s
+        if (z_scores[i] > 2 and z_scores[i-1] < -2) or (z_scores[i] < -2 and z_scores[i-1] > 2):
+            violations.append({'x': x[i], 'y': data[i], 'rule': 'R_4s Violation'})
+    
+    violation_points = pd.DataFrame(violations)
+    if not violation_points.empty:
+        fig.add_trace(go.Scatter(
+            x=violation_points['x'], y=violation_points['y'], mode='markers', name='Violation',
+            marker=dict(color='red', size=15, symbol='x-thin', line=dict(width=3))
+        ), row=1, col=1)
+        for _, row in violation_points.iterrows():
+            fig.add_annotation(x=row['x'], y=row['y'], text=f"<b>{row['rule']}</b>", showarrow=True, arrowhead=2, ax=0, ay=-40, font=dict(color="red"), row=1, col=1)
+
+    # --- Plot 2: Distribution of QC Data ---
+    fig.add_trace(go.Histogram(x=data, name='Distribution', histnorm='probability density', marker_color='darkblue'), row=2, col=1)
+    x_norm = np.linspace(mean - 4*std, mean + 4*std, 100)
+    y_norm = stats.norm.pdf(x_norm, mean, std)
+    fig.add_trace(go.Scatter(x=x_norm, y=y_norm, mode='lines', name='Normal Curve', line=dict(color='red', dash='dash')), row=2, col=1)
+
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>QC Run Validation Dashboard</b>',
+        height=800,
+        showlegend=False
+    )
+    fig.update_yaxes(title_text="Measured Value", row=1, col=1)
+    fig.update_yaxes(title_text="Density", row=2, col=1)
+    fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1)
+    
+    return fig
+
 
 def plot_capability(scenario):
     np.random.seed(42); LSL, USL = 90, 110
@@ -1007,13 +1086,35 @@ elif "Small Shift Detection" in method_key:
             st.latex("SH_i = \\max(0, SH_{i-1} + (x_i - \\mu_0) - k)")
             st.latex("SL_i = \\max(0, SL_{i-1} + (\\mu_0 - x_i) - k)")
             st.markdown("A signal occurs if $SH_i$ or $SL_i > H$.")
+
 elif "Run Validation" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To create an objective, statistically-driven system for accepting or rejecting each analytical run based on QC sample performance. **Application:** Routine QC in a regulated environment.")
-    st.plotly_chart(plot_multi_rule(), use_container_width=True)
+    st.markdown("""
+    **Purpose:** To create an objective, statistically-driven system for accepting or rejecting each individual analytical run based on the performance of Quality Control (QC) samples.
+    
+    **Definition:** Run validation employs a set of statistical rules, applied to a Levey-Jennings chart, to detect deviations from expected performance. These rules are designed to catch both large, random errors and smaller, systematic trends that might indicate a problem.
+    
+    **Application:** This is the Hero's daily duty as the Guardian of the process. Each day, the Villain of Variation will try to sneak past the defenses. This multi-rule system is the vigilant gatekeeper that ensures only valid, trustworthy results are released. It is the core of routine QC in any regulated lab environment.
+    """)
+    col1, col2 = st.columns([0.65, 0.35])
+    with col1:
+        st.plotly_chart(plot_multi_rule(), use_container_width=True)
+    with col2:
+        st.subheader("Analysis & Interpretation")
+        tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
+        with tab1:
+            st.metric(label="📈 KPI: Run Status", value="Violations Detected", delta="Action Required", delta_color="inverse")
+            st.markdown("- **Levey-Jennings Chart:** The top plot visualizes the QC data over time with 1, 2, and 3-sigma zones. Specific Westgard rule violations are now automatically flagged and annotated.")
+            st.markdown("- **Distribution Plot:** The bottom plot shows the overall histogram of the QC data. It should approximate a bell curve centered on the mean. Skewness or multiple peaks can indicate a problem.")
+            st.markdown("**The Bottom Line:** The annotations on the Levey-Jennings chart provide immediate, actionable feedback. They distinguish between random errors (like the `R_4s` rule) and systematic errors (like the `2_2s` or `4_1s` rules), guiding the troubleshooting process.")
+        with tab2:
+            st.markdown("A run is typically rejected if a 'Rejection Rule' is violated. See the tabs below for detailed rule sets.")
+        with tab3:
+            st.markdown("**Origin:** Dr. S. Levey and Dr. E. R. Jennings introduced control charts to the clinical lab in the 1950s. Dr. James Westgard later developed the multi-rule system in the 1980s to improve error detection.")
+            st.markdown("**Mathematical Basis:** The rules are based on the probabilities of points from a normal distribution falling within specific sigma zones. Patterns that are highly improbable under normal conditions are flagged as signals.")
+            
     st.subheader("Standard Industry Rule Sets")
-    tab1, tab2, tab3 = st.tabs(["✅ Westgard Rules", "✅ Nelson Rules", "✅ Western Electric Rules"])
-    with tab1: st.markdown("""Developed for lab QC, vital for CLIA, CAP, ISO 15189 compliance. A run is rejected if a "Rejection Rule" is violated.
+    tab_w, tab_n, tab_we = st.tabs(["✅ Westgard Rules", "✅ Nelson Rules", "✅ Western Electric Rules"])
+    with tab_w: st.markdown("""Developed for lab QC, vital for CLIA, CAP, ISO 15189 compliance. A run is rejected if a "Rejection Rule" is violated.
 | Rule | Use Case | Interpretation |
 |---|---|---|
 | **1_2s** | Warning | One control > ±2σ. Triggers inspection. |
@@ -1022,7 +1123,7 @@ elif "Run Validation" in method_key:
 | **R_4s** | Rejection | One > +2σ and the next > -2σ. |
 | **4_1s** | Rejection | Four consecutive > same ±1σ limit. |
 | **10x** | Rejection | Ten consecutive points on the same side of the mean. |""")
-    with tab2: st.markdown("""Excellent for catching non-random patterns in manufacturing and general SPC.
+    with tab_n: st.markdown("""Excellent for catching non-random patterns in manufacturing and general SPC.
 | Rule | What It Flags |
 |---|---|
 | 1. One point > 3σ | Sudden shift or outlier |
@@ -1033,7 +1134,7 @@ elif "Run Validation" in method_key:
 | 6. 4 of 5 > 1σ (same side) | Small persistent shift |
 | 7. 15 points inside ±1σ | Reduced variation |
 | 8. 8 points outside ±1σ | Increased variation |""")
-    with tab3: st.markdown("""Foundational rules from which many other systems were derived.
+    with tab_we: st.markdown("""Foundational rules from which many other systems were derived.
 | Rule | Interpretation |
 |---|---|
 | **Rule 1** | One point falls outside the ±3σ limits. |
