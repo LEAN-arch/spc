@@ -1334,8 +1334,6 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 ])
 st.header(method_key)
 
-# --- Dynamic Content Display ---
-# All 15 elif blocks follow, each with the full, detailed content and professional layout.
 
 elif "Gage R&R" in method_key:
     st.markdown("""
@@ -1395,7 +1393,7 @@ elif "Gage R&R" in method_key:
             The key KPI, **% Contribution**, is then calculated by comparing the Gage R&R variance to the total variation observed in the study:
             """)
             st.latex(r"\%R\&R = 100 \times \left( \frac{\hat{\sigma}^2_{R\&R}}{\hat{\sigma}^2_{Total}} \right)")
-
+            
 elif "Linearity and Range" in method_key:
     st.markdown("""
     **Purpose:** To verify the assay's ability to provide results that are directly proportional to the concentration of the analyte across a specified range.
