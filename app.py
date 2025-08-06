@@ -1398,7 +1398,7 @@ elif "Linearity and Range" in method_key:
     
     **Definition:** Linearity is the measure of how well a calibration plot of response versus concentration approximates a straight line. The Range is the interval between the upper and lower concentration of an analyte in a sample for which the assay has been demonstrated to have a suitable level of precision, accuracy, and linearity.
     
-    **Application:** This study is a fundamental part of assay validation. Our Hero must prove that their weapon—the assay—is not just precise, but also consistently accurate across the entire range of interest. A non-linear assay is like a warped ruler; it may be right in the middle, but it gives dangerously misleading results at the extremes.
+    **Application:** This study is a fundamental part of assay validation. It demonstrates that the assay is not only precise but also consistently accurate across the entire measurement range. An assay with non-linearity can produce misleading results at the extremes, even if it performs well at the center, making this evaluation critical for reliable data interpretation.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
@@ -1460,7 +1460,7 @@ elif "LOD & LOQ" in method_key:
     - **Limit of Detection (LOD):** The lowest analyte concentration that produces a signal distinguishable from the background noise of the blank. It answers the question, "Is the analyte present?"
     - **Limit of Quantitation (LOQ):** The lowest analyte concentration that can be measured with an acceptable level of precision and accuracy. This is the official lower boundary of the assay's reportable range.
     
-    **Application:** This is a critical part of assay characterization. Our Hero must know the limits of their senses. This analysis defines the absolute floor of your assay's capability, proving you can trust measurements down to the LOQ and detect presence down to the LOD. This is vital for applications like impurity testing or low-level biomarker detection.
+    **Application:** This is a critical component of assay characterization. This analysis defines the absolute limits of your assay’s capability—establishing the lowest level at which you can reliably quantify (LOQ) and detect (LOD) the target analyte. Understanding these limits is essential for applications such as impurity testing or low-level biomarker detection, where trust in sensitive measurements is paramount.
     """)
     col1, col2 = st.columns([0.65, 0.35]);
     with col1:
@@ -1508,7 +1508,7 @@ elif "Method Comparison" in method_key:
     
     **Definition:** This analysis quantifies the systematic and random differences between two methods that are intended to measure the same quantity. It goes far beyond a simple correlation to determine if the methods can be used interchangeably.
     
-    **Application:** This is the heart of the "Crucible" act in our Hero's journey. Having forged a new weapon (the assay), the Hero must now prove it is as good as the old one. This study provides the definitive evidence to answer the critical question: "Do these two methods agree sufficiently well?" A successful outcome is a cornerstone of a successful assay transfer or method validation.
+    **Application:** This study is central to the “Crucible” phase of assay transfer. After developing a new assay, it is essential to demonstrate that it performs equivalently to the established method. This comparison provides definitive evidence to answer the critical question: “Do these two methods agree sufficiently well?” A successful agreement is a key milestone in ensuring a smooth and reliable assay transfer or method validation.
     """)
     col1, col2 = st.columns([0.65, 0.35])
     with col1:
@@ -1566,7 +1566,7 @@ elif "Assay Robustness (DOE/RSM)" in method_key:
     st.markdown("""
     **Purpose:** To systematically explore how deliberate variations in assay parameters (e.g., temperature, pH) affect the outcome. This is a crucial step in building a deep understanding of the method.
     
-    **Application:** This is the Hero's proactive strike against the Villain of Variation. Instead of waiting for problems, we hunt for them. This study identifies which parameters are critical to control tightly (the vital few) and which are insignificant, allowing us to build a robust process that can withstand real-world fluctuations. It ultimately defines a scientifically proven "safe operating space" for the assay.
+    **Application:** This is a proactive approach to managing variation by identifying critical process parameters. Rather than reacting to problems after they occur, this study focuses on determining which parameters—the vital few—must be tightly controlled versus those that have minimal impact. By doing so, it helps establish a scientifically justified "safe operating space" for the assay, enabling the design of a robust process that reliably withstands real-world variability.
     """)
     
     vis_type = st.radio(
@@ -1634,7 +1634,7 @@ elif "Process Stability" in method_key:
     
     **Definition:** A process is "in control" when its variation is due only to random, inherent "common causes." An "out of control" process exhibits "special cause" variation from specific, identifiable events.
     
-    **Application:** This is the foundational step of process monitoring and a **strict prerequisite for Process Capability analysis**. It is the Hero's first battle: to prove that the Villain of Variation has been tamed and is behaving predictably. An out-of-control process is a wild, untamed beast; a capable analysis cannot be performed until it is brought into a state of control.
+    **Application:** This is the foundational step in process monitoring and a strict prerequisite for process capability analysis. Before assessing whether a process consistently meets specifications, it must first be shown to be in a state of statistical control. An out-of-control process is unstable and unpredictable—making any capability assessment invalid. Establishing control is the first critical step in demonstrating that variation is understood and managed.
     """)
     col1, col2 = st.columns([0.65, 0.35]);
     with col1:
@@ -1671,7 +1671,7 @@ elif "Small Shift Detection" in method_key:
     - **EWMA (Exponentially Weighted Moving Average):** A chart that gives exponentially decreasing weight to older observations, making it sensitive to small, gradual drifts.
     - **CUSUM (Cumulative Sum):** A chart that accumulates deviations from a target value, making it the most statistically powerful tool for detecting small, abrupt, and sustained shifts.
     
-    **Application:** These are the Hero's early-warning systems. After the initial chaos of transfer is tamed (Act II), the Villain of Variation becomes subtle. It introduces slow instrument drift or a slight bias from a new reagent lot. A Shewhart chart might not notice, but these advanced charts will, allowing us to act *before* a major out-of-spec event occurs.
+    **Application:** These are advanced early-warning systems for detecting subtle process shifts. Once the major challenges of method transfer have been addressed, sources of variation often become more gradual—such as slow instrument drift or minor bias introduced by a new reagent lot. While standard Shewhart charts may not detect these changes early enough, these advanced control charts are designed to do so, enabling timely intervention before a significant out-of-specification event occurs.
     """)
     chart_type = st.sidebar.radio("Select Chart Type:", ('EWMA', 'CUSUM'))
     col1, col2 = st.columns([0.65, 0.35])
