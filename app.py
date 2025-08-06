@@ -878,8 +878,64 @@ def plot_predictive_qc():
     return fig
 
 def plot_forecasting():
-    np.random.seed(42); dates = pd.to_datetime(pd.date_range(start='2022-01-01', periods=104, freq='W')); trend = np.linspace(0, 5, 104); seasonality = 1.5 * np.sin(np.arange(104) * (2 * np.pi / 52.14)); noise = np.random.normal(0, 0.5, 104); y = 50 + trend + seasonality + noise; df = pd.DataFrame({'ds': dates, 'y': y}); model = Prophet(weekly_seasonality=False, daily_seasonality=False); model.fit(df); future = model.make_future_dataframe(periods=26, freq='W'); forecast = model.predict(future)
-    fig1 = plot_plotly(model, forecast); fig1.add_hline(y=58, line_dash="dash", line_color="red", annotation_text="Upper Spec Limit"); fig1.update_layout(title_text='Time Series Forecasting of Control Performance'); fig2 = plot_components_plotly(model, forecast); return fig1, fig2
+    # --- Data Generation ---
+    np.random.seed(42)
+    dates = pd.to_datetime(pd.date_range(start='2022-01-01', periods=104, freq='W'))
+    # Trend with a changepoint
+    trend1 = np.linspace(0, 2, 52)
+    trend2 = np.linspace(2.1, 8, 52)
+    trend = np.concatenate([trend1, trend2])
+    seasonality = 1.5 * np.sin(np.arange(104) * (2 * np.pi / 52.14)) # Annual seasonality
+    noise = np.random.normal(0, 0.5, 104)
+    y = 50 + trend + seasonality + noise
+    df = pd.DataFrame({'ds': dates, 'y': y})
+    
+    # --- Model Training and Prediction ---
+    model = Prophet(weekly_seasonality=False, daily_seasonality=False, yearly_seasonality=True, changepoint_prior_scale=0.5)
+    model.fit(df)
+    future = model.make_future_dataframe(periods=26, freq='W')
+    forecast = model.predict(future)
+    
+    # --- Figure 1: Main Forecast Plot ---
+    fig1 = plot_plotly(model, forecast)
+    fig1.update_layout(
+        title_text='<b>Control Performance Forecast vs. Specification Limit</b>',
+        xaxis_title='Date', yaxis_title='Control Value (U/mL)',
+        showlegend=True
+    )
+    # Add spec limit and highlight breaches
+    spec_limit = 58
+    fig1.add_hline(y=spec_limit, line_dash="dash", line_color="red", annotation_text="Upper Spec Limit")
+    breaches = forecast[forecast['yhat_upper'] > spec_limit]
+    if not breaches.empty:
+        fig1.add_trace(go.Scatter(
+            x=breaches['ds'], y=breaches['yhat'],
+            mode='markers', name='Predicted Breach',
+            marker=dict(color='red', size=10, symbol='diamond')
+        ))
+    # Add forecast horizon annotation
+    fig1.add_vrect(x0=forecast['ds'].iloc[-26], x1=forecast['ds'].iloc[-1], 
+                  fillcolor="rgba(0,100,80,0.1)", layer="below", line_width=0,
+                  annotation_text="Forecast Horizon", annotation_position="top left")
+
+    # --- Figure 2: Trend & Changepoints Plot ---
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=forecast['ds'], y=forecast['trend'], mode='lines', name='Trend', line=dict(color='navy')))
+    from prophet.plot import add_changepoints_to_plot
+    add_changepoints_to_plot(fig2, model, forecast)
+    fig2.update_layout(
+        title_text='<b>Decomposed Trend with Detected Changepoints</b>',
+        xaxis_title='Date', yaxis_title='Trend Value'
+    )
+    
+    # --- Figure 3: Seasonality Plot ---
+    fig3 = plot_components_plotly(model, forecast, figsize=(900, 200))
+    fig3.update_layout(
+        title_text='<b>Decomposed Seasonal Effects</b>',
+        showlegend=False
+    )
+
+    return fig1, fig2, fig3
 
 def plot_wilson(successes, n_samples):
     p_hat = successes / n_samples if n_samples > 0 else 0; wald_lower, wald_upper = stats.norm.interval(0.95, loc=p_hat, scale=np.sqrt(p_hat*(1-p_hat)/n_samples)) if n_samples > 0 else (0,0); wilson_lower, wilson_upper = wilson_score_interval(p_hat, n_samples); cp_lower, cp_upper = stats.beta.interval(0.95, successes, n_samples - successes + 1) if n_samples > 0 else (0,1); intervals = {"Wald (Approximate)": (wald_lower, wald_upper, 'red'), "Wilson Score": (wilson_lower, wilson_upper, 'blue'), "Clopper-Pearson (Exact)": (cp_lower, cp_upper, 'green')}; fig = go.Figure()
@@ -1350,17 +1406,40 @@ elif "Predictive QC (ML)" in method_key:
             st.markdown("**Mathematical Basis:** It models the probability of a binary outcome (y=1) by passing a linear combination of input features ($x$) through the sigmoid (logistic) function:")
             st.latex(r"P(y=1|x) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + ...)}}")
 
-elif "Control Forecasting" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To forecast the future performance of assay controls to anticipate problems. **Application:** Proactive scheduling of instrument maintenance or ordering of new reagent lots before performance degrades.")
-    fig1_fc, fig2_fc = plot_forecasting()
-    st.plotly_chart(fig1_fc, use_container_width=True)
-    with st.expander("Interpretation, Rules & Theory"):
-        st.markdown("""- **📈 KPI: Forecasted Trend.** The components plot below reveals if there is a consistent upward or downward trend over time.
-- **💡 Key Insight:** The forecast shows the expected future path and uncertainty interval of the control. The components plot decomposes this into trend and seasonality for root cause analysis.
-- **✅ Acceptance Rule:** A "proactive alert" can be triggered if the **lower bound of the 80% forecast interval is predicted to cross a specification limit** within the forecast horizon.
-- **📖 Method Theory:** Prophet is an open-source library from Facebook based on a decomposable model: $ y(t) = g(t) + s(t) + h(t) + \\epsilon_t $, with terms for trend, seasonality, and holidays.""")
+elif "Control Forecasting (AI)" in method_key:
+    st.markdown("""
+    **Purpose:** To use a time series model to forecast the future performance of assay controls, enabling proactive management instead of reactive problem-solving.
+    
+    **Definition:** Time series forecasting is a machine learning technique that analyzes historical, time-ordered data points to detect patterns (like trend and seasonality) and uses them to predict future values.
+    
+    **Application:** This is the Hero's ultimate power: seeing the future. By forecasting where a control is heading, the Hero can anticipate problems *before* they occur. This tool can predict that a reagent lot will start to fail in 3 weeks, or that an instrument will need recalibration next month. It transforms maintenance and inventory management from a scheduled chore into an intelligent, data-driven strategy.
+    """)
+    col1, col2 = st.columns([0.65, 0.35])
+    with col1:
+        fig1_fc, fig2_fc, fig3_fc = plot_forecasting()
+        st.plotly_chart(fig1_fc, use_container_width=True)
         st.plotly_chart(fig2_fc, use_container_width=True)
+        st.plotly_chart(fig3_fc, use_container_width=True)
+    with col2:
+        st.subheader("Analysis & Interpretation")
+        tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
+        with tab1:
+            st.metric(label="📈 KPI: Forecast Status", value="Future Breach Predicted", help="The model predicts the spec limit will be crossed.")
+            st.markdown("- **Forecast Plot (Top):** Shows the historical data (black dots), the model's prediction (blue line), and the 80% confidence interval (blue band). Red diamonds mark where the forecast breaches the specification limit.")
+            st.markdown("- **Trend & Changepoints (Middle):** This is the most powerful diagnostic plot. It shows the underlying long-term trend of the process. Red dashed lines mark 'changepoints' where the model detected a significant shift in the trend, often corresponding to real-world events like a new instrument or reagent lot.")
+            st.markdown("- **Seasonality (Bottom):** Shows the predictable yearly pattern in the assay's performance.")
+            st.markdown("**The Bottom Line:** This analysis provides a roadmap for the future. It not only tells you *when* a problem is likely to occur but also *why* (is it a long-term trend or a seasonal effect?), enabling highly targeted and proactive process management.")
+        with tab2:
+            st.markdown("- A **'Proactive Alert'** should be triggered if the lower or upper bound of the 80% forecast interval (`yhat_lower` or `yhat_upper`) is predicted to cross a specification limit within the defined forecast horizon (e.g., the next 4-6 weeks).")
+            st.markdown("- Any automatically detected **changepoint** should be investigated and correlated with historical batch records or lab events to understand its root cause.")
+        with tab3:
+            st.markdown("**Origin:** Prophet is an open-source forecasting procedure developed by Facebook's Core Data Science team, designed to be robust for business-style time series data.")
+            st.markdown("**Mathematical Basis:** It's a decomposable time series model that fits a curve using a combination of trend, seasonality, and holiday components.")
+            st.latex(r"y(t) = g(t) + s(t) + h(t) + \epsilon_t")
+            st.markdown("- $g(t)$: Piecewise linear or logistic growth trend with automated changepoint detection.")
+            st.markdown("- $s(t)$: Seasonal patterns (e.g., yearly, weekly) modeled with Fourier series.")
+            st.markdown("- $h(t)$: Effects of known, potentially irregular events (holidays).")
+
 
 elif "Pass/Fail Analysis" in method_key:
     # ... (Content for this method)
