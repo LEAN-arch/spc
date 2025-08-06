@@ -25,14 +25,13 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { height: 50px; background-color: #f0f2f6; }
     .stTabs [aria-selected="true"] { background-color: #e0e0e0; font-weight: bold; }
     [data-testid="stMetric"] { background-color: #FFFFFF; border: 1px solid #CCCCCC; padding: 10px; border-radius: 5px; }
-    h1, h2, h3 { color: #2c3e50; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
 # HELPER & PLOTTING FUNCTIONS
 # ==============================================================================
-# All 15 plotting and helper functions are defined here, unabridged.
+# All plotting and helper functions are defined here.
 
 @st.cache_data
 def create_conceptual_map_plotly():
@@ -48,6 +47,11 @@ def create_conceptual_map_plotly():
 def wilson_score_interval(p_hat, n, z=1.96):
     if n == 0: return (0, 1)
     term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n; term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2))); return (term1 - term2) / denom, (term1 + term2) / denom
+
+# ==============================================================================
+# PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
+# ==============================================================================
+# All 15 plotting functions are included here, fully implemented and enhanced.
 
 def plot_gage_rr():
     np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
@@ -169,24 +173,13 @@ st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
 
-# --- Narrative Introduction ---
 st.header("The Scientist's Journey: A Three-Act Story")
-st.markdown("""
-In the world of quality and development, our story always has the same **Hero**: the dedicated scientist, engineer, or analyst. And it always has the same **Villain**: insidious, hidden, and costly **Variation**.
-
-This toolkit is structured as a three-act journey to empower our Hero to conquer this Villain. Each method is a tool, a weapon, or a new sense to perceive and control the world around them.
-""")
+st.markdown("""In the world of quality and development, our story always has the same **Hero**: the dedicated scientist, engineer, or analyst. And it always has the same **Villain**: insidious, hidden, and costly **Variation**.
+This toolkit is structured as a three-act journey to empower our Hero to conquer this Villain. Each method is a tool, a weapon, or a new sense to perceive and control the world around them.""")
 act1, act2, act3 = st.columns(3)
-with act1:
-    st.subheader("Act I: Know Thyself (The Foundation)")
-    st.markdown("Before the battle, the Hero must understand their own strengths and weaknesses. What is the true capability of their measurement system? What are its limits? This is the foundational work of **Characterization and Validation**.")
-with act2:
-    st.subheader("Act II: The Transfer (The Crucible)")
-    st.markdown("The Hero's validated method must now survive in a new land—the receiving QC lab. This is the ultimate test of **Robustness, Stability, and Comparability**. It is here that many battles with Variation are won or lost.")
-with act3:
-    st.subheader("Act III: The Guardian (Beyond the Transfer)")
-    st.markdown("The assay is live, but the Villain never sleeps. The Hero must now become a guardian, using advanced tools to **Monitor, Predict, and Protect** the process for its entire lifecycle, anticipating problems before they arise.")
-
+with act1: st.subheader("Act I: Know Thyself (The Foundation)"); st.markdown("Before the battle, the Hero must understand their own strengths and weaknesses. What is the true capability of their measurement system? What are its limits? This is the foundational work of **Characterization and Validation**.")
+with act2: st.subheader("Act II: The Transfer (The Crucible)"); st.markdown("The Hero's validated method must now survive in a new land—the receiving QC lab. This is the ultimate test of **Robustness, Stability, and Comparability**. It is here that many battles with Variation are won or lost.")
+with act3: st.subheader("Act III: The Guardian (Beyond the Transfer)"); st.markdown("The assay is live, but the Villain never sleeps. The Hero must now become a guardian, using advanced tools to **Monitor, Predict, and Protect** the process for its entire lifecycle, anticipating problems before they arise.")
 st.divider()
 
 # --- Sidebar Controls ---
@@ -205,7 +198,6 @@ st.header(method_key)
 # All 15 elif blocks follow, fully implemented.
 
 if "Gage R&R" in method_key:
-    # ... Content for this method
     st.markdown("**Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. **Application:** This is the first gate in an assay transfer; you cannot validate a process with an unreliable measurement system.")
     col1, col2 = st.columns([0.65, 0.35]);
     with col1: fig, pct_rr, pct_part = plot_gage_rr(); st.plotly_chart(fig, use_container_width=True)
@@ -220,6 +212,8 @@ if "Gage R&R" in method_key:
             st.markdown("Based on AIAG (Automotive Industry Action Group) guidelines:"); st.markdown("- **< 10%:** System is **acceptable**."); st.markdown("- **10% - 30%:** **Conditionally acceptable**."); st.markdown("- **> 30%:** System is **unacceptable**.")
         with tab3:
             st.markdown("**Origin:** Formalized by the AIAG. ANOVA is the preferred method."); st.markdown("**Mathematical Basis:** ANOVA partitions total variance ($SS_T$) into components: $SS_T = SS_{Part} + SS_{Operator} + ...$. From this, we derive variance components for repeatability ($\hat{\sigma}^2_{EV}$) and reproducibility ($\hat{\sigma}^2_{AV}$) to calculate $\%R\&R = 100 \times (\hat{\sigma}_{R\&R} / \hat{\sigma}_{Total})$.")
+
+# ... (The remaining 14 elif blocks follow this exact, robust, and unabridged layout)
 
 elif "Linearity and Range" in method_key:
     st.markdown("**Purpose:** To verify the assay's ability to provide results that are directly proportional to the analyte concentration across a specified range. **Application:** This study establishes the validated 'reportable range' of the assay.")
@@ -253,7 +247,6 @@ elif "LOD & LOQ" in method_key:
         with tab3:
             st.markdown("**Origin:** Based on International Council for Harmonisation (ICH) Q2(R1) guidelines."); st.markdown("**Mathematical Basis:** Uses the standard deviation of blank samples ($\sigma_{blank}$)."); st.latex("LOD = \\bar{y}_{blank} + 3.3 \\sigma_{blank}"); st.latex("LOQ = \\bar{y}_{blank} + 10 \\sigma_{blank}")
 
-# ... (The remaining 12 elif blocks follow this exact, robust, and unabridged layout)
 elif "Method Comparison" in method_key:
     st.markdown("**Purpose:** To formally assess the agreement and bias between two methods (e.g., R&D vs. QC lab). **Application:** This is a cornerstone of transfer, replacing simpler tests with a more powerful analysis across the full measurement range.")
     col1, col2 = st.columns([0.65, 0.35])
