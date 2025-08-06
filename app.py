@@ -961,9 +961,57 @@ def plot_forecasting():
     return fig1, fig2, fig3
 
 def plot_wilson(successes, n_samples):
-    p_hat = successes / n_samples if n_samples > 0 else 0; wald_lower, wald_upper = stats.norm.interval(0.95, loc=p_hat, scale=np.sqrt(p_hat*(1-p_hat)/n_samples)) if n_samples > 0 else (0,0); wilson_lower, wilson_upper = wilson_score_interval(p_hat, n_samples); cp_lower, cp_upper = stats.beta.interval(0.95, successes, n_samples - successes + 1) if n_samples > 0 else (0,1); intervals = {"Wald (Approximate)": (wald_lower, wald_upper, 'red'), "Wilson Score": (wilson_lower, wilson_upper, 'blue'), "Clopper-Pearson (Exact)": (cp_lower, cp_upper, 'green')}; fig = go.Figure()
-    for i, (name, (lower, upper, color)) in enumerate(intervals.items()): fig.add_trace(go.Scatter(x=[lower, upper], y=[name, name], mode='lines+markers', line=dict(color=color, width=10), name=name, hoverinfo='text', text=f"[{lower:.3f}, {upper:.3f}]"))
-    fig.add_vline(x=p_hat, line_dash="dash", line_color="black", annotation_text=f"Observed Rate={p_hat:.2%}"); fig.update_layout(title_text=f'Comparing 95% CIs for {successes}/{n_samples} Concordant Results', xaxis_title='Concordance Rate', height=500); return fig
+    # --- Data for CI Comparison Plot ---
+    p_hat = successes / n_samples if n_samples > 0 else 0
+    wald_lower, wald_upper = stats.norm.interval(0.95, loc=p_hat, scale=np.sqrt(p_hat*(1-p_hat)/n_samples)) if n_samples > 0 else (0,0)
+    wilson_lower, wilson_upper = wilson_score_interval(p_hat, n_samples)
+    cp_lower, cp_upper = stats.beta.interval(0.95, successes, n_samples - successes + 1) if n_samples > 0 else (0,1)
+    
+    intervals = {
+        "Wald (Approximate)": (wald_lower, wald_upper),
+        "Wilson Score": (wilson_lower, wilson_upper),
+        "Clopper-Pearson (Exact)": (cp_lower, cp_upper)
+    }
+    
+    # --- Figure 1: CI Comparison ---
+    fig1 = go.Figure()
+    for name, (lower, upper) in intervals.items():
+        fig1.add_trace(go.Bar(
+            x=[(upper + lower) / 2],
+            y=[name],
+            error_x=dict(type='data', array=[(upper - lower) / 2]),
+            orientation='h',
+            name=name
+        ))
+    fig1.add_vline(x=p_hat, line_dash="dash", line_color="black", annotation_text=f"Observed Rate={p_hat:.2%}")
+    fig1.update_layout(
+        title_text=f'<b>Comparing 95% CIs for {successes}/{n_samples} Concordant Results</b>',
+        xaxis_title='Concordance Rate',
+        barmode='overlay',
+        showlegend=False
+    )
+
+    # --- Figure 2: Coverage Probability ---
+    true_proportions = np.linspace(0, 1, 500)
+    n_coverage = n_samples
+    
+    wald_coverage = [np.mean([stats.binom.cdf(np.floor(wald_upper*n_coverage), n_coverage, p) - stats.binom.cdf(np.ceil(wald_lower*n_coverage)-1, n_coverage, p) for _ in range(1)]) for p in true_proportions]
+    wilson_coverage = [np.mean([stats.binom.cdf(np.floor(wilson_score_interval(k/n_coverage, n_coverage)[1]*n_coverage), n_coverage, p) - stats.binom.cdf(np.ceil(wilson_score_interval(k/n_coverage, n_coverage)[0]*n_coverage)-1, n_coverage, p) for k in range(n_coverage+1)]) for p in true_proportions]
+    cp_coverage = [np.mean([stats.binom.cdf(np.floor(stats.beta.interval(0.95, k, n_coverage - k + 1)[1]*n_coverage), n_coverage, p) - stats.binom.cdf(np.ceil(stats.beta.interval(0.95, k, n_coverage - k + 1)[0]*n_coverage)-1, n_coverage, p) for k in range(n_coverage+1)]) for p in true_proportions]
+
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=true_proportions, y=wald_coverage, mode='lines', name='Wald', line=dict(color='red')))
+    fig2.add_trace(go.Scatter(x=true_proportions, y=wilson_coverage, mode='lines', name='Wilson Score', line=dict(color='blue')))
+    fig2.add_trace(go.Scatter(x=true_proportions, y=cp_coverage, mode='lines', name='Clopper-Pearson', line=dict(color='green')))
+    fig2.add_hline(y=0.95, line_dash="dash", line_color="black", annotation_text="Nominal 95% Coverage")
+    fig2.update_layout(
+        title_text=f'<b>Coverage Probability for n={n_samples}</b>',
+        xaxis_title='True Proportion',
+        yaxis_title='Actual Coverage Probability',
+        yaxis_range=[min(0.8, min(wald_coverage)-0.02), 1.02]
+    )
+
+    return fig1, fig2
 
 # Replace the old plot_bayesian function with this one.
 def plot_bayesian(prior_type):
@@ -1464,21 +1512,36 @@ elif "Control Forecasting (AI)" in method_key:
             st.markdown("- $h(t)$: Effects of known, potentially irregular events (holidays).")
 
 elif "Pass/Fail Analysis" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To accurately calculate a confidence interval for a proportion. **Application:** Essential for validating qualitative assays (e.g., presence/absence) where the result is a simple pass or fail.")
-    n_samples_wilson = st.sidebar.slider("Number of Validation Samples (n)", 1, 100, 30); successes_wilson = st.sidebar.slider("Concordant Results", 0, n_samples_wilson, int(n_samples_wilson * 0.95))
+    st.markdown("""
+    **Purpose:** To accurately calculate and compare confidence intervals for a binomial proportion.
+    
+    **Definition:** A binomial proportion is the ratio of successes to the total number of trials (e.g., number of concordant results / total samples). A confidence interval provides a range of plausible values for the true, underlying proportion.
+    
+    **Application:** This is essential for validating qualitative or "pass/fail" assays. Our Hero needs to prove, with a high degree of confidence, that the assay's success rate (e.g., concordance with a reference method) is above a certain threshold. Choosing the wrong statistical method here can lead to dangerously misleading conclusions, especially with the small sample sizes common in validation studies.
+    """)
+    n_samples_wilson = st.sidebar.slider("Number of Validation Samples (n)", 1, 100, 30); 
+    successes_wilson = st.sidebar.slider("Concordant Results", 0, n_samples_wilson, int(n_samples_wilson * 0.95))
+    
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: st.plotly_chart(plot_wilson(successes_wilson, n_samples_wilson), use_container_width=True)
+    with col1:
+        fig1_wilson, fig2_wilson = plot_wilson(successes_wilson, n_samples_wilson)
+        st.plotly_chart(fig1_wilson, use_container_width=True)
+        st.plotly_chart(fig2_wilson, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
             st.metric(label="📈 KPI: Observed Rate", value=f"{(successes_wilson/n_samples_wilson if n_samples_wilson > 0 else 0):.2%}")
-            st.markdown("- **Wilson & Clopper-Pearson** intervals are robust for small samples."); st.markdown("- The **Wald interval** is unreliable and should be avoided.")
+            st.markdown("- **CI Comparison (Top Plot):** This plot shows the calculated 95% confidence intervals from three different methods. Notice how the unreliable 'Wald' interval can become dangerously narrow or extend beyond plausible values (0 or 1).")
+            st.markdown("- **Coverage Probability (Bottom Plot):** This is the model's report card. It shows the *actual* probability that the interval contains the true value for a given true proportion. An ideal interval would be a flat line at 95%.")
+            st.markdown("- **The 'Holy Shit' Moment:** The Wald interval's coverage (in red) is terrible. It frequently drops to dangerously low levels, meaning it gives a false sense of precision. The Wilson and Clopper-Pearson intervals perform much closer to the nominal 95% level, proving their reliability.")
+            st.markdown("**The Bottom Line:** Never use the standard Wald interval for important decisions. The Wilson Score interval provides the best balance of accuracy and interval width for most applications.")
         with tab2:
-            st.markdown("- **The lower bound of the 95% Wilson Score CI must be ≥ the target concordance rate** (e.g., 90%).")
+            st.markdown("- A common acceptance criterion for assay validation is: **'The lower bound of the 95% Wilson Score (or Clopper-Pearson) confidence interval must be greater than or equal to the target concordance rate'** (e.g., 90%).")
         with tab3:
-            st.markdown("**Origin:** Wilson Score (1927) and Clopper-Pearson (1934) improve upon the standard Wald interval."); st.markdown("**Mathematical Basis (Wilson):** $ \\frac{1}{1 + z^2/n} \\left( \\hat{p} + \\frac{z^2}{2n} \\pm z \\sqrt{\\frac{\\hat{p}(1-\\hat{p})}{n} + \\frac{z^2}{4n^2}} \\right) $")
+            st.markdown("**Origin:** The Wilson Score (1927) and Clopper-Pearson (1934) intervals were developed to provide much better performance than the standard Wald interval, especially for small samples.")
+            st.markdown("**Mathematical Basis (Wilson):**")
+            st.latex(r"\frac{1}{1 + z^2/n} \left( \hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}} \right)")
 
 elif "Bayesian Inference" in method_key:
     st.markdown("""
