@@ -73,10 +73,40 @@ def plot_method_comparison():
     np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x-x_mean)**2); Sxy = np.sum((x-x_mean)*(y-y_mean)); beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; diff = y - x; mean_diff = np.mean(diff); upper_loa = mean_diff + 1.96*np.std(diff,ddof=1); lower_loa = mean_diff - 1.96*np.std(diff,ddof=1)
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot")); fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2); fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
 
+# Replace the old plot_robustness_rsm function with this one.
 def plot_robustness_rsm():
-    np.random.seed(42); factors = {'Temp': [-1, 1, -1, 1, -1.414, 1.414, 0, 0, 0, 0, 0, 0, 0], 'pH': [-1, -1, 1, 1, 0, 0, -1.414, 1.414, 0, 0, 0, 0, 0]}; df = pd.DataFrame(factors); df['Response'] = 95 - 5*df['Temp'] + 2*df['pH'] - 4*(df['Temp']**2) - 2*(df['pH']**2) + 3*df['Temp']*df['pH'] + np.random.normal(0, 1.5, len(df)); model = ols('Response ~ Temp + pH + I(Temp**2) + I(pH**2) + Temp:pH', data=df).fit(); temp_range = np.linspace(-2, 2, 50); ph_range = np.linspace(-2, 2, 50); grid_temp, grid_ph = np.meshgrid(temp_range, ph_range); grid_df = pd.DataFrame({'Temp': grid_temp.ravel(), 'pH': grid_ph.ravel()}); grid_df['Predicted_Response'] = model.predict(grid_df); predicted_response_grid = grid_df['Predicted_Response'].values.reshape(50, 50); doe_data = {'Temp': [-1, 1, -1, 1], 'pH': [-1, -1, 1, 1]}; doe_df = pd.DataFrame(doe_data); doe_df['Response'] = 95 - 5*doe_df['Temp'] + 2*doe_df['pH'] + 3*doe_df['Temp']*doe_df['pH'] + np.random.normal(0, 1.5, 4); doe_model = ols('Response ~ Temp * pH', data=doe_df).fit(); effects = doe_model.params.iloc[1:].sort_values(key=abs, ascending=False)
-    fig_pareto = px.bar(x=effects.values, y=effects.index, orientation='h', title="Pareto Plot of Factor Effects"); fig_contour = go.Figure(data=go.Contour(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis', contours=dict(coloring='lines', showlabels=True))); fig_contour.add_trace(go.Scatter(x=df['Temp'], y=df['pH'], mode='markers', marker=dict(color='red', size=8), name='Design Points')); fig_contour.update_layout(title="2D Contour Plot of Response Surface", xaxis_title="Temperature (coded units)", yaxis_title="pH (coded units)"); fig_surface = go.Figure(data=[go.Surface(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis')]); fig_surface.update_layout(title='3D Response Surface Plot', scene=dict(xaxis_title="Temperature", yaxis_title="pH", zaxis_title="Assay Response")); return fig_pareto, fig_contour, fig_surface
+    # --- Data Generation ---
+    np.random.seed(42)
+    # Screening Design Data (for Pareto)
+    doe_data = {'Temp': [-1, 1, -1, 1], 'pH': [-1, -1, 1, 1]}; doe_df = pd.DataFrame(doe_data); doe_df['Response'] = 95 - 5*doe_df['Temp'] + 2*doe_df['pH'] + 3*doe_df['Temp']*doe_df['pH'] + np.random.normal(0, 1.5, 4); 
+    doe_model = ols('Response ~ Temp * pH', data=doe_df).fit(); effects = doe_model.params.iloc[1:].sort_values(key=abs, ascending=False); p_values = doe_model.pvalues.iloc[1:]
+    
+    # RSM Design Data (for Surfaces)
+    factors = {'Temp': [-1, 1, -1, 1, -1.414, 1.414, 0, 0, 0, 0, 0, 0, 0], 'pH': [-1, -1, 1, 1, 0, 0, -1.414, 1.414, 0, 0, 0, 0, 0]}; 
+    df = pd.DataFrame(factors); df['Response'] = 95 - 5*df['Temp'] + 2*df['pH'] - 4*(df['Temp']**2) - 2*(df['pH']**2) + 3*df['Temp']*df['pH'] + np.random.normal(0, 1.5, len(df)); 
+    rsm_model = ols('Response ~ Temp + pH + I(Temp**2) + I(pH**2) + Temp:pH', data=df).fit();
+    
+    # --- Figure 1: Pareto Plot ---
+    effect_data = pd.DataFrame({'effect': effects.values, 'p_value': p_values[effects.index]}); effect_data['color'] = np.where(effect_data['p_value'] < 0.05, 'salmon', 'skyblue') # Color by significance
+    fig_pareto = px.bar(effect_data, x='effect', y=effects.index, orientation='h', title="Pareto Plot of Factor Effects", text=np.round(effects.values, 2))
+    fig_pareto.update_traces(marker_color=effect_data['color'])
+    fig_pareto.update_layout(yaxis={'categoryorder':'total ascending'})
 
+    # --- Figures 2 & 3: RSM Plots ---
+    temp_range = np.linspace(-2, 2, 50); ph_range = np.linspace(-2, 2, 50); grid_temp, grid_ph = np.meshgrid(temp_range, ph_range); 
+    grid_df = pd.DataFrame({'Temp': grid_temp.ravel(), 'pH': grid_ph.ravel()}); grid_df['Predicted_Response'] = rsm_model.predict(grid_df); 
+    predicted_response_grid = grid_df['Predicted_Response'].values.reshape(50, 50)
+    
+    fig_contour = go.Figure(data=go.Contour(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis', contours=dict(coloring='lines', showlabels=True))); 
+    fig_contour.add_trace(go.Scatter(x=df['Temp'], y=df['pH'], mode='markers', marker=dict(color='red', size=8, symbol='x'), name='Design Points'))
+    fig_contour.update_layout(title="2D Contour Plot of Response Surface", xaxis_title="Temperature (coded units)", yaxis_title="pH (coded units)")
+    
+    fig_surface = go.Figure(data=[go.Surface(z=predicted_response_grid, x=temp_range, y=ph_range, colorscale='Viridis')]); 
+    fig_surface.add_trace(go.Scatter3d(x=df['Temp'], y=df['pH'], z=df['Response'], mode='markers', marker=dict(color='red', size=5), name='Design Points'))
+    fig_surface.update_layout(title='3D Response Surface Plot', scene=dict(xaxis_title="Temperature", yaxis_title="pH", zaxis_title="Assay Response"))
+    
+    return fig_pareto, fig_contour, fig_surface, effects
+    
 def plot_shewhart():
     np.random.seed(42); in_control = np.random.normal(100.0, 2.0, 15); reagent_shift = np.random.normal(108.0, 2.0, 10); data = np.concatenate([in_control, reagent_shift]); x = np.arange(1, len(data) + 1); mean = np.mean(data[:15]); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr[:14]); sigma_est = mr_mean / 1.128; UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est; out_of_control_I = np.where((data > UCL_I) | (data < LCL_I))[0]; UCL_MR = mr_mean * 3.267
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("I-Chart: Monitors Accuracy (Bias)", "MR-Chart: Monitors Precision (Variability)"), vertical_spacing=0.1); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='Control Value'), row=1, col=1); fig.add_trace(go.Scatter(x=x[out_of_control_I], y=data[out_of_control_I], mode='markers', marker=dict(color='red', size=12), name='Signal'), row=1, col=1); fig.add_hline(y=mean, line_dash="dash", line_color="black", row=1, col=1); fig.add_hline(y=UCL_I, line_color="red", row=1, col=1); fig.add_hline(y=LCL_I, line_color="red", row=1, col=1); fig.add_vrect(x0=15.5, x1=25.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="New Lot", row=1, col=1); fig.add_trace(go.Scatter(x=x[1:], y=mr, mode='lines+markers', name='Moving Range', marker_color='teal'), row=2, col=1); fig.add_hline(y=mr_mean, line_dash="dash", line_color="black", row=2, col=1); fig.add_hline(y=UCL_MR, line_color="red", row=2, col=1); fig.update_layout(title_text='Process Stability Monitoring: Shewhart I-MR Chart', height=700, showlegend=False); fig.update_yaxes(title_text="Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Range (ng/mL)", row=2, col=1); fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1); return fig
@@ -142,15 +172,51 @@ def plot_wilson(successes, n_samples):
     for i, (name, (lower, upper, color)) in enumerate(intervals.items()): fig.add_trace(go.Scatter(x=[lower, upper], y=[name, name], mode='lines+markers', line=dict(color=color, width=10), name=name, hoverinfo='text', text=f"[{lower:.3f}, {upper:.3f}]"))
     fig.add_vline(x=p_hat, line_dash="dash", line_color="black", annotation_text=f"Observed Rate={p_hat:.2%}"); fig.update_layout(title_text=f'Comparing 95% CIs for {successes}/{n_samples} Concordant Results', xaxis_title='Concordance Rate', height=500); return fig
 
+# Replace the old plot_bayesian function with this one.
 def plot_bayesian(prior_type):
     n_qc, successes_qc = 20, 18; observed_rate = successes_qc / n_qc;
     if prior_type == "Strong R&D Prior": prior_alpha, prior_beta = 490, 10
     elif prior_type == "Skeptical/Regulatory Prior": prior_alpha, prior_beta = 10, 10
     else: prior_alpha, prior_beta = 1, 1
-    p_range = np.linspace(0, 1, 1000); prior_dist = beta.pdf(p_range, prior_alpha, prior_beta); posterior_alpha, posterior_beta = prior_alpha + successes_qc, prior_beta + (n_qc - successes_qc); posterior_dist = beta.pdf(p_range, posterior_alpha, posterior_beta); cred_interval = beta.interval(0.95, posterior_alpha, posterior_beta)
-    fig = go.Figure(); fig.add_trace(go.Scatter(x=p_range, y=prior_dist, mode='lines', name='Prior Belief', line=dict(dash='dash', color='green'))); fig.add_trace(go.Scatter(x=p_range, y=posterior_dist, mode='lines', name='Posterior Belief', line=dict(color='blue', width=3), fill='tozeroy', fillcolor='rgba(0,0,255,0.1)')); fig.add_vline(x=observed_rate, line_dash="dot", line_color="red", annotation_text=f"QC Data={observed_rate:.2%}")
-    fig.update_layout(title_text='Bayesian Inference for Assay Concordance Rate', xaxis_title='Assay Pass Rate (Concordance)', yaxis_title='Probability Density', height=600, xaxis_range=[0.7, 1.0]); return fig
+    
+    p_range = np.linspace(0.6, 1.0, 500)
+    # Calculate Prior
+    prior_dist = beta.pdf(p_range, prior_alpha, prior_beta)
+    prior_mean = prior_alpha / (prior_alpha + prior_beta)
+    
+    # Calculate Likelihood
+    likelihood = stats.binom.pmf(k=successes_qc, n=n_qc, p=p_range)
+    
+    # Calculate Posterior
+    posterior_alpha, posterior_beta = prior_alpha + successes_qc, prior_beta + (n_qc - successes_qc)
+    posterior_dist = beta.pdf(p_range, posterior_alpha, posterior_beta)
+    posterior_mean = posterior_alpha / (posterior_alpha + posterior_beta)
+    
+    # Create Plot
+    fig = go.Figure()
+    
+    # Normalize for visualization
+    max_y = np.max(posterior_dist)
+    
+    # Plot Likelihood
+    fig.add_trace(go.Scatter(x=p_range, y=likelihood * max_y / np.max(likelihood), mode='lines', name='Likelihood (from QC Data)', line=dict(dash='dot', color='red'), fill='tozeroy', fillcolor='rgba(255,0,0,0.1)'))
+    
+    # Plot Prior
+    fig.add_trace(go.Scatter(x=p_range, y=prior_dist, mode='lines', name='Prior Belief', line=dict(dash='dash', color='green')))
 
+    # Plot Posterior
+    fig.add_trace(go.Scatter(x=p_range, y=posterior_dist, mode='lines', name='Posterior Belief', line=dict(color='blue', width=4), fill='tozeroy', fillcolor='rgba(0,0,255,0.2)'))
+
+    fig.add_vline(x=posterior_mean, line_dash="solid", line_color="blue", annotation_text=f"Posterior Mean={posterior_mean:.3f}")
+    
+    fig.update_layout(
+        title_text='Bayesian Inference: How Evidence Updates Belief',
+        xaxis_title='Assay Pass Rate (Concordance)', yaxis_title='Probability Density / Scaled Likelihood',
+        height=600,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
+    )
+    
+    return fig, prior_mean, observed_rate, posterior_mean
 def plot_ci_concept():
     np.random.seed(123); pop_mean, pop_std, n = 100, 15, 30; n_sims = 100; capture_count = 0; fig = go.Figure()
     for i in range(n_sims):
@@ -262,27 +328,50 @@ elif "Method Comparison" in method_key:
         with tab3:
             st.markdown("**Origin:** Deming Regression (W. Edwards Deming); Bland-Altman plot (1986)."); st.markdown("**Mathematical Basis:** Deming minimizes perpendicular distances to the line. Bland-Altman plots Difference vs. Average; Limits of Agreement are $\\bar{d} \\pm 1.96 \\cdot s_d$.")
 
-elif "Assay Robustness" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To proactively identify which assay parameters (e.g., temperature, pH) have the biggest impact on results and to find the optimal operating region. **Application:** A key part of method development and validation, ensuring the assay performs reliably under minor real-world variations.")
-    vis_type = st.radio("Select Visualization:", ["📊 Pareto Plot (Screening)", "📈 2D Contour Plot (Optimization)", "🧊 3D Surface Plot (Visualization)"], horizontal=True)
-    fig_pareto, fig_contour, fig_surface = plot_robustness_rsm()
+elif "Assay Robustness (DOE/RSM)" in method_key:
+    st.markdown("""
+    **Purpose:** To systematically explore how deliberate variations in assay parameters (e.g., temperature, pH) affect the outcome. This is a crucial step in building a deep understanding of the method.
+    
+    **Application:** This is the Hero's proactive strike against the Villain of Variation. Instead of waiting for problems, we hunt for them. This study identifies which parameters are critical to control tightly (the vital few) and which are insignificant, allowing us to build a robust process that can withstand real-world fluctuations. It ultimately defines a scientifically proven "safe operating space" for the assay.
+    """)
+    
+    vis_type = st.radio(
+        "Select Analysis Stage:", 
+        ["📊 **Stage 1: Factor Screening (Pareto Plot)**", "📈 **Stage 2: Process Optimization (2D Contour)**", "🧊 **Stage 2: Process Optimization (3D Surface)**"], 
+        horizontal=True,
+        help="Start with Screening to find key factors, then use Optimization to find the best settings for those factors."
+    )
+    
+    # This function is now enhanced for world-class rendering.
+    fig_pareto, fig_contour, fig_surface, effects = plot_robustness_rsm()
+    
     col1, col2 = st.columns([0.65, 0.35])
+
     with col1:
-        if "Pareto" in vis_type: st.plotly_chart(fig_pareto, use_container_width=True)
-        elif "2D" in vis_type: st.plotly_chart(fig_contour, use_container_width=True)
-        else: st.plotly_chart(fig_surface, use_container_width=True)
+        if "Screening" in vis_type:
+            st.plotly_chart(fig_pareto, use_container_width=True)
+        elif "2D Contour" in vis_type:
+            st.plotly_chart(fig_contour, use_container_width=True)
+        else:
+            st.plotly_chart(fig_surface, use_container_width=True)
+            
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Significant Factors", value="Temp, pH, Temp*pH"); st.markdown("- **Screening (Pareto):** Identifies the 'vital few' parameters with significant effects."); st.markdown("- **Optimization (Contour/Surface):** Reveals the 'sweet spot' for the assay and visualizes complex interactions.")
+            st.metric(label="📈 KPI: Most Significant Factor", value=f"{effects.index[0]}")
+            st.metric(label="💡 Effect Magnitude", value=f"{effects.values[0]:.2f}")
+            st.markdown("- **Screening (Pareto):** The Pareto plot instantly reveals the 'vital few' parameters with significant effects (those colored red). In this case, `Temp` and the `Temp:pH` interaction are the most critical drivers of variation.")
+            st.markdown("- **Optimization (Contour/Surface):** These plots provide a map of the process, revealing the 'sweet spot'—the combination of settings that yields the optimal response (highest point on the surface).")
             st.markdown("**The Bottom Line:** This study provides a map of your assay's operating space, allowing you to set control limits that guarantee robustness against real-world process noise.")
         with tab2:
-            st.markdown("- The outcome is knowledge for setting control limits. The goal is to define an **operating space** where the assay is known to be robust, and to set SOP limits well within this space.")
+            st.markdown("- **Screening:** Any factor whose effect bar crosses the significance threshold is considered a **critical parameter**. The acceptance rule is that the final SOP must include tighter controls for these parameters.")
+            st.markdown("- **Optimization:** The goal is to define a **Design Space** or **Normal Operating Range (NOR)**—a region on the contour plot where the assay is proven to be robust and reliable. The final process parameters should be set well within this space, far from any steep 'cliffs'.")
         with tab3:
-            st.markdown("**Origin:** Design of Experiments (DOE) by Sir R.A. Fisher; Response Surface Methodology (RSM) by Box and Wilson."); st.markdown("**Mathematical Basis:** RSM fits a quadratic model: $y = \\beta_0 + \\sum \\beta_i x_i + \\sum \\beta_{ii} x_i^2 + \\sum \\beta_{ij} x_i x_j + \\epsilon$.")
-
+            st.markdown("**Origin:** Design of Experiments (DOE) was pioneered by Sir R.A. Fisher. Response Surface Methodology (RSM) was developed by Box and Wilson to efficiently model and optimize processes.")
+            st.markdown("**Mathematical Basis:** RSM fits a second-order (quadratic) model to the experimental data, which can capture curvature in the response:")
+            st.latex("y = \\beta_0 + \\sum \\beta_i x_i + \\sum \\beta_{ii} x_i^2 + \\sum \\beta_{ij} x_i x_j + \\epsilon")
+            
 elif "Process Stability" in method_key:
     # ... (Content for this method)
     st.markdown("**Purpose:** To demonstrate that the assay can be run in a stable and predictable manner at the receiving site. **Application:** A process must be stable (in statistical control) before its capability can be assessed. This chart separates common cause from special cause variation.")
@@ -430,22 +519,40 @@ elif "Pass/Fail Analysis" in method_key:
             st.markdown("**Origin:** Wilson Score (1927) and Clopper-Pearson (1934) improve upon the standard Wald interval."); st.markdown("**Mathematical Basis (Wilson):** $ \\frac{1}{1 + z^2/n} \\left( \\hat{p} + \\frac{z^2}{2n} \\pm z \\sqrt{\\frac{\\hat{p}(1-\\hat{p})}{n} + \\frac{z^2}{4n^2}} \\right) $")
 
 elif "Bayesian Inference" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To formally combine historical data (the 'Prior') with new data (the 'Likelihood') to arrive at a more robust conclusion (the 'Posterior'). **Application:** Using extensive R&D data to reduce the required size of a QC validation study.")
+    st.markdown("""
+    **Purpose:** To formally combine existing knowledge (the 'Prior') with new experimental data (the 'Likelihood') to arrive at an updated, more robust conclusion (the 'Posterior').
+    
+    **Application:** This is the Hero's secret weapon for efficiency. Instead of starting from scratch, the Hero can leverage the vast knowledge from the R&D lab to design smaller, smarter validation studies at the QC site. It answers the question: "Given what we already knew, what does this new data tell us?"
+    """)
     prior_type_bayes = st.sidebar.radio("Select Prior Belief:", ("Strong R&D Prior", "No Prior (Frequentist)", "Skeptical/Regulatory Prior"))
+    
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: st.plotly_chart(plot_bayesian(prior_type_bayes), use_container_width=True)
+    
+    with col1:
+        # This function is now enhanced for world-class rendering.
+        fig, prior_mean, mle, posterior_mean = plot_bayesian(prior_type_bayes)
+        st.plotly_chart(fig, use_container_width=True)
+        
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Posterior Belief", value=f"Updated w/ {prior_type_bayes}")
-            st.markdown("- **Posterior** (blue line) is the updated belief."); st.markdown("- **Strong Priors** require more data to be swayed.")
+            st.metric(label="📈 KPI: Posterior Mean Rate", value=f"{posterior_mean:.3f}")
+            st.metric(label="💡 Prior Mean Rate", value=f"{prior_mean:.3f}")
+            st.metric(label="💡 Data (MLE)", value=f"{mle:.3f}")
+            st.markdown("- **Prior (Green):** Our initial belief. A 'Strong' prior is narrow and confident; a 'Skeptical' prior is broad and uncertain.")
+            st.markdown("- **Likelihood (Red):** The evidence provided by the new data, sharply peaked at the observed rate.")
+            st.markdown("- **Posterior (Blue):** The final, updated belief. It's a weighted compromise, pulled from the Prior towards the Likelihood.")
+            st.markdown("**The Bottom Line:** The plot now tells a story. Notice how the strong prior isn't swayed much by the new data, while the skeptical prior is almost entirely convinced by it. This is Bayesian updating in action.")
         with tab2:
             st.markdown("- The **95% credible interval must be entirely above the target** (e.g., 90%).")
+            st.markdown("- This approach allows for demonstrating success with smaller sample sizes if a strong, justifiable prior is used.")
         with tab3:
-            st.markdown("**Origin:** Based on Bayes' Theorem (18th century)."); st.markdown("**Mathematical Basis:** $ \\text{Posterior} \\propto \\text{Likelihood} \\times \\text{Prior} $. For this case, the Beta-Binomial conjugate model is used: Posterior is Beta($\\alpha_{prior} + k, \\beta_{prior} + n - k$).")
-
+            st.markdown("**Origin:** Based on Bayes' Theorem (18th century), but made practical by modern computational methods.")
+            st.markdown("**Mathematical Basis:** The core idea is that the posterior is proportional to the product of the likelihood and the prior.")
+            st.latex("\\text{Posterior} \\propto \\text{Likelihood} \\times \\text{Prior}")
+            st.markdown("For binomial data, we use the Beta-Binomial conjugate model: if the Prior is Beta($\\alpha, \\beta$) and we observe $k$ successes in $n$ trials, the Posterior is Beta($\\alpha + k, \\beta + n - k$).")
+            
 elif "Confidence Interval Concept" in method_key:
     # ... (Content for this method)
     st.markdown("**Purpose:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals. **Application:** This is a foundational concept that underpins many of the statistical tests used in validation and quality control.")
