@@ -933,7 +933,8 @@ def plot_forecasting():
         ]
         if len(signif_changepoints) > 0:
             for cp in signif_changepoints:
-                fig2.add_vline(x=cp, line_width=1, line_dash="dashed", line_color="red")
+                # CORRECTED LINE: Changed 'dashed' to 'dash'
+                fig2.add_vline(x=cp, line_width=1, line_dash="dash", line_color="red")
 
     fig2.update_layout(
         title_text='<b>Decomposed Trend with Detected Changepoints</b>',
