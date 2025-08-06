@@ -734,8 +734,66 @@ def plot_capability(scenario):
     fig.update_layout(title_text=f'Process Capability Analysis - Scenario: {scenario}', height=800, showlegend=False); return fig, Cpk, scenario
 
 def plot_anomaly_detection():
-    np.random.seed(42); X_normal = np.random.multivariate_normal([100, 20], [[5, 2],[2, 1]], 200); X_anomalies = np.array([[95, 25], [110, 18], [115, 28]]); X = np.vstack([X_normal, X_anomalies]); model = IsolationForest(n_estimators=100, contamination=0.015, random_state=42); model.fit(X); y_pred = model.predict(X); xx, yy = np.meshgrid(np.linspace(X[:, 0].min()-5, X[:, 0].max()+5, 100), np.linspace(X[:, 1].min()-5, X[:, 1].max()+5, 100)); Z = model.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
-    fig = go.Figure(); fig.add_trace(go.Contour(x=xx[0], y=yy[:,0], z=Z, colorscale='Blues_r', showscale=False, opacity=0.4)); fig.add_trace(go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=y_pred, colorscale='coolwarm_r', line=dict(width=1, color='black')), text=[f"Status: {'Anomaly' if p==-1 else 'Normal'}" for p in y_pred], hoverinfo='x+y+text')); fig.update_layout(title_text='Multivariate Anomaly Detection (Isolation Forest)', xaxis_title='Assay Response (Fluorescence Units)', yaxis_title='Incubation Time (min)', height=600); return fig
+    # --- Data Generation ---
+    np.random.seed(42)
+    X_normal = np.random.multivariate_normal([100, 20], [[5, 2],[2, 1]], 200)
+    X_anomalies = np.array([[95, 25], [110, 18], [115, 28]])
+    X = np.vstack([X_normal, X_anomalies])
+    
+    # --- Model Training ---
+    model = IsolationForest(n_estimators=100, contamination=0.015, random_state=42)
+    model.fit(X)
+    y_pred = model.predict(X) # -1 for anomalies, 1 for normal
+    
+    # --- Figure Creation ---
+    # Create the background contour plot
+    xx, yy = np.meshgrid(np.linspace(X[:, 0].min()-5, X[:, 0].max()+5, 100), np.linspace(X[:, 1].min()-5, X[:, 1].max()+5, 100))
+    Z = model.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+    
+    fig = go.Figure()
+
+    # Add the contour trace for the decision boundary
+    fig.add_trace(go.Contour(
+        x=xx[0], y=yy[:,0], z=Z, 
+        colorscale=[[0, 'rgba(255, 0, 0, 0.2)'], [1, 'rgba(0, 0, 255, 0.2)']], # Red for anomaly, blue for normal
+        showscale=False,
+        hoverinfo='none'
+    ))
+    
+    # Separate normal and anomaly points for plotting
+    df_plot = pd.DataFrame(X, columns=['x', 'y'])
+    df_plot['status'] = ['Anomaly' if p == -1 else 'Normal' for p in y_pred]
+    
+    # Add Normal Points Trace
+    normal_df = df_plot[df_plot['status'] == 'Normal']
+    fig.add_trace(go.Scatter(
+        x=normal_df['x'], y=normal_df['y'],
+        mode='markers',
+        marker=dict(color='royalblue', size=8, line=dict(width=1, color='black')),
+        name='Normal Run',
+        hovertemplate="<b>Status: Normal</b><br>Response: %{x:.2f}<br>Time: %{y:.2f}<extra></extra>"
+    ))
+    
+    # Add Anomaly Points Trace
+    anomaly_df = df_plot[df_plot['status'] == 'Anomaly']
+    fig.add_trace(go.Scatter(
+        x=anomaly_df['x'], y=anomaly_df['y'],
+        mode='markers',
+        marker=dict(color='red', size=12, symbol='x-thin', line=dict(width=3)),
+        name='Anomaly',
+        hovertemplate="<b>Status: Anomaly</b><br>Response: %{x:.2f}<br>Time: %{y:.2f}<extra></extra>"
+    ))
+
+    fig.update_layout(
+        title_text='<b>Multivariate Anomaly Detection (Isolation Forest)</b>',
+        xaxis_title='Assay Response (Fluorescence Units)',
+        yaxis_title='Incubation Time (min)',
+        height=600,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        title_x=0.5
+    )
+    return fig
+
 
 def plot_predictive_qc():
     np.random.seed(1); n_points = 150; X1 = np.random.normal(5, 2, n_points); X2 = np.random.normal(25, 3, n_points); logit_p = -15 + 1.5 * X1 + 0.5 * X2 + np.random.normal(0, 2, n_points); p = 1 / (1 + np.exp(-logit_p)); y = np.random.binomial(1, p); X = np.vstack([X1, X2]).T; model = LogisticRegression().fit(X, y); xx, yy = np.meshgrid(np.linspace(X[:,0].min()-1, X[:,0].max()+1, 200), np.linspace(X[:,1].min()-1, X[:,1].max()+1, 200)); Z = model.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1].reshape(xx.shape)
@@ -1160,20 +1218,32 @@ elif "Process Capability" in method_key:
         with tab3:
             st.markdown("**Origin:** Developed in manufacturing as part of Six Sigma."); st.markdown("**Mathematical Basis:** $ C_{pk} = \\min \\left( \\frac{USL - \\bar{x}}{3\\hat{\sigma}}, \\frac{\\bar{x} - LSL}{3\\hat{\sigma}} \\right) $.")
 
-elif "Anomaly Detection" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To leverage machine learning to detect complex, multivariate anomalies that traditional univariate control charts would miss. **Application:** Proactive, real-time monitoring of complex assays to find novel failure modes.")
+elif "Anomaly Detection (ML)" in method_key:
+    st.markdown("""
+    **Purpose:** To leverage machine learning to detect complex, multivariate anomalies that traditional univariate control charts would miss.
+    
+    **Definition:** An anomaly is a data point that deviates significantly from the majority of the data. An Isolation Forest is an unsupervised algorithm that identifies these points by learning the 'shape' of normal operating conditions.
+    
+    **Application:** This is the Hero's tool for finding the "ghost in the machine." An operator might swear every individual parameter is in spec, but the ML model flags a run as an anomaly because the *combination* of parameters is highly unusual. This is critical for uncovering subtle, novel failure modes that would otherwise go unnoticed.
+    """)
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: st.plotly_chart(plot_anomaly_detection(), use_container_width=True)
+    with col1:
+        st.plotly_chart(plot_anomaly_detection(), use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Anomalies Detected", value="3"); st.markdown("- This method finds 'unknown unknowns' by learning the normal multi-dimensional shape of the data."); st.markdown("- **The 'Holy Shit' Moment:** This is the 'ghost in the machine.' An operator swears every parameter is in spec, but the ML model flags a run as anomalous because the *combination* of parameters is wrong. This uncovers subtle failure modes no human could see.")
+            st.metric(label="📈 KPI: Anomalies Detected", value="3", help="Number of points flagged by the model.")
+            st.markdown("- **The Plot:** The blue shaded area represents the model's learned 'normal' operating space. Points outside this area are flagged as anomalies (red).")
+            st.markdown("- **The 'Holy Shit' Moment:** Notice that the anomalous points are not necessarily extreme on any single axis. Their combination is what makes them unusual, a pattern that is nearly impossible for a human or a simple control chart to detect.")
+            st.markdown("**The Bottom Line:** This is a proactive monitoring tool that moves beyond simple rule-based alarms to a holistic assessment of process health, enabling the detection of previously unknown problems.")
         with tab2:
-            st.markdown("- Any point flagged as an **anomaly must be investigated** by SMEs to determine root cause.")
+            st.markdown("- This is an exploratory and monitoring tool. There is no hard 'pass/fail' rule during validation.")
+            st.markdown("- The primary rule is that any point flagged as an **anomaly must be investigated** by Subject Matter Experts (SMEs) to determine the root cause and assess its impact on product quality.")
         with tab3:
-            st.markdown("**Origin:** Proposed by Liu, Ting, and Zhou in 2008."); st.markdown("**Mathematical Basis:** Uses random trees to isolate points. The score $ s(x, n) = 2^{-\\frac{E(h(x))}{c(n)}} $ is based on the average path length $E(h(x))$ to isolate a point.")
+            st.markdown("**Origin:** The Isolation Forest algorithm was proposed by Fei Tony Liu, Kai Ming Ting, and Zhi-Hua Zhou in 2008.")
+            st.markdown("**Mathematical Basis:** It is based on the principle that anomalies are 'few and different' and thus easier to isolate in a random tree structure. The model's anomaly score is based on the average path length required to isolate a data point.")
+            st.latex(r"s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}")
 
 elif "Predictive QC" in method_key:
     # ... (Content for this method)
