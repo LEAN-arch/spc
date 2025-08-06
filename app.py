@@ -1453,20 +1453,46 @@ elif "Method Comparison" in method_key:
             st.metric(label="📈 KPI: Mean Bias (B-A)", value=f"{bias:.2f} units")
             st.metric(label="💡 Metric: Deming Slope", value=f"{slope:.3f}", help="Ideal = 1.0. Measures proportional bias.")
             st.metric(label="💡 Metric: Deming Intercept", value=f"{intercept:.2f}", help="Ideal = 0.0. Measures constant bias.")
-            st.markdown("- **Deming Regression:** The confidence band shows the uncertainty. If the 'Line of Identity' falls within this band, there is no significant systematic bias.")
-            st.markdown("- **Bland-Altman Plot:** Visualizes the random error and quantifies the expected range of disagreement (Limits of Agreement). Look for trends or funnel shapes, which indicate non-constant bias.")
-            st.markdown("- **% Bias Plot:** Directly assesses practical significance. Does the bias at any concentration exceed the pre-defined limits (e.g., ±15%)?")
+            st.markdown("- **Deming Regression:** Checks for systematic constant (intercept) and proportional (slope) errors.")
+            st.markdown("- **Bland-Altman Plot:** Visualizes the random error and quantifies the expected range of disagreement (Limits of Agreement).")
+            st.markdown("- **% Bias Plot:** Directly assesses practical significance. Does the bias at any concentration exceed the pre-defined limits?")
             st.markdown("**The Bottom Line:** Passing all three analyses proves that the receiving lab's method is statistically indistinguishable from the reference method, confirming a successful transfer.")
         with tab2:
             st.markdown("- **Deming Regression:** The 95% confidence interval for the **slope should contain 1.0**, and the 95% CI for the **intercept should contain 0**.")
             st.markdown(f"- **Bland-Altman:** Greater than 95% of the data points must fall within the Limits of Agreement (`{la:.2f}` to `{ua:.2f}`). The width of this interval must be practically or clinically acceptable.")
             st.markdown("- **Percent Bias:** The bias at each concentration level should not exceed a pre-defined limit, often **±15%**. ")
         with tab3:
-            st.markdown("**Origin:** Deming Regression (W. Edwards Deming) is an errors-in-variables model. The Bland-Altman plot (1986 Lancet paper) was created to properly assess agreement between two clinical measurement methods.")
-            st.markdown("**Mathematical Basis (Bland-Altman):**")
-            st.markdown("For each sample $i$, calculate Average $(\\frac{x_i+y_i}{2})$ and Difference $(y_i - x_i)$. The Limits of Agreement (LoA) are defined as:")
-            st.latex(r"\bar{d} \pm 1.96 \cdot s_d")
-            st.markdown("where $\\bar{d}$ and $s_d$ are the mean and standard deviation of the differences.")
+            st.markdown("""
+            #### Origin and Development
+
+            **The Problem with Simple Regression:** For decades, scientists incorrectly used standard Ordinary Least Squares (OLS) regression and correlation (R²) to compare methods. This approach is fundamentally flawed because it assumes the reference method (x-axis) is measured without error, which is never true. This leads to biased estimates of the slope and intercept.
+
+            - **Deming's Solution:** **W. Edwards Deming**, a giant in the field of quality, popularized a more appropriate technique known as **Errors-in-Variables Regression** (often called Deming Regression). This method acknowledges that *both* the reference and test methods have inherent measurement error. It finds a line that minimizes the sum of squared errors in both the x and y directions, providing a much more accurate and unbiased estimate of the true relationship between the two methods.
+
+            **The Problem with Correlation:** A high correlation (e.g., R² = 0.99) does not mean two methods agree. It only means that they are proportional to each other. For example, if one method consistently gives a result that is exactly double the other, the correlation would be perfect, but the methods clearly do not agree.
+
+            - **The Bland-Altman Revolution:** In a landmark 1986 paper in *The Lancet*, statisticians **J. Martin Bland and Douglas G. Altman** addressed this widespread misuse of correlation. They proposed a simple, intuitive graphical method that directly assesses **agreement**. By plotting the *difference* between the two methods against their *average*, their plot makes it easy to visualize the mean bias, the scatter around the bias (random error), and any trends in the bias across the measurement range. It has since become the gold standard for method comparison studies in the clinical and life sciences.
+
+            ---
+            
+            #### Mathematical Basis
+
+            **Deming Regression:**
+            Unlike OLS, which minimizes vertical distances to the line, Deming regression minimizes the sum of squared perpendicular distances from the data points to the regression line, weighted by the ratio of the error variances ($\lambda = \sigma^2_y / \sigma^2_x$). The slope ($\beta_1$) is calculated as:
+            """)
+            st.latex(r"\beta_1 = \frac{(S_{yy} - \lambda S_{xx}) + \sqrt{(S_{yy} - \lambda S_{xx})^2 + 4\lambda S_{xy}^2}}{2S_{xy}}")
+            st.markdown(r"""
+            Where $S_{xx}$, $S_{yy}$, and $S_{xy}$ are the sums of squares and cross-products.
+
+            **Bland-Altman Plot:**
+            For each sample $i$, calculate:
+            - Average: $(\frac{x_i+y_i}{2})$
+            - Difference: $(y_i - x_i)$
+            
+            The plot shows the Difference versus the Average. The key metrics are the **mean bias** ($\bar{d}$) and the **Limits of Agreement (LoA)**, which define the range where 95% of future differences are expected to lie:
+            """)
+            st.latex(r"LoA = \bar{d} \pm 1.96 \cdot s_d")
+            st.markdown("where $s_d$ is the standard deviation of the differences.")
             
 elif "Assay Robustness (DOE/RSM)" in method_key:
     st.markdown("""
