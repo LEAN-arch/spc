@@ -1334,7 +1334,6 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 ])
 st.header(method_key)
 
-
 elif "Gage R&R" in method_key:
     st.markdown("""
     **Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. 
@@ -1343,7 +1342,7 @@ elif "Gage R&R" in method_key:
     
     **Application:** This is the first and most critical gate in an assay transfer. You cannot validate a process with an unreliable measurement system. Before our Hero can fight the Villain of Process Variation, they must first prove their own weapon—the assay—is sharp, true, and reliable.
     """)
-    col1, col2 = st.columns([0.65, 0.35]);
+    col1, col2 = st.columns([0.65, 0.35])
     with col1:
         fig, pct_rr, pct_part = plot_gage_rr()
         st.plotly_chart(fig, use_container_width=True)
