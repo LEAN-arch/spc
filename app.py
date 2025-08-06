@@ -1641,11 +1641,16 @@ elif "Run Validation" in method_key:
         with tab3:
             st.markdown("""
             #### Origin and Development
-
+            
             **From Industry to the Clinic:** The concept of control charts originated with Walter Shewhart in industrial manufacturing in the 1920s. In the 1950s, **Dr. S. Levey and Dr. E. R. Jennings** adapted this powerful tool for the clinical laboratory, creating what is now known as the Levey-Jennings chart. This was a revolutionary step in bringing statistical quality control to healthcare.
-
-            **The Westgard Revolution:** For decades, labs often used simple ±2σ or ±3σ limits. However, **Dr. James Westgard** recognized that this approach was a blunt instrument—either too prone to false alarms (2s) or not sensitive enough to real problems (3s). In a landmark 1981 paper, he proposed a "multi-rule" system. This system combines several different rules to create a highly sensitive yet specific quality control procedure. The Westgard Rules are now the global standard for clinical laboratory QC and are essential for meeting regulatory requirements from bodies like CLIA, CAP, and ISO 15189.")
-            st.markdown("**Mathematical Basis:** The rules are based on the probabilities of points from a normal distribution falling within specific sigma zones. Patterns that are highly improbable under normal conditions are flagged as signals.")
+            
+            **The Westgard Revolution:** For decades, labs often used simple ±2σ or ±3σ limits. However, **Dr. James Westgard** recognized that this approach was a blunt instrument—either too prone to false alarms (2s) or not sensitive enough to real problems (3s). In a landmark 1981 paper, he proposed a "multi-rule" system. This system combines several different rules to create a highly sensitive yet specific quality control procedure. The Westgard Rules are now the global standard for clinical laboratory QC and are essential for meeting regulatory requirements from bodies like CLIA, CAP, and ISO 15189.
+            
+            ---
+            
+            #### Mathematical Basis
+            The rules are based on the probabilities of points from a normal distribution falling within specific sigma zones. Patterns that are highly improbable under normal conditions are flagged as signals.
+            """)
             
     st.subheader("Standard Industry Rule Sets")
     tab_w, tab_n, tab_we = st.tabs(["✅ Westgard Rules", "✅ Nelson Rules", "✅ Western Electric Rules"])
