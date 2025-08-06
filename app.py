@@ -918,20 +918,42 @@ def plot_forecasting():
                   fillcolor="rgba(0,100,80,0.1)", layer="below", line_width=0,
                   annotation_text="Forecast Horizon", annotation_position="top left")
 
-    # --- Figure 2: Trend & Changepoints Plot ---
+    # --- Figure 2: Trend & Changepoints Plot (CORRECTED IMPLEMENTATION) ---
     fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(x=forecast['ds'], y=forecast['trend'], mode='lines', name='Trend', line=dict(color='navy')))
-    from prophet.plot import add_changepoints_to_plot
-    add_changepoints_to_plot(fig2, model, forecast)
+    # Plot the trend line
+    fig2.add_trace(go.Scatter(
+        x=forecast['ds'], y=forecast['trend'], 
+        mode='lines', name='Trend', line=dict(color='navy')
+    ))
+    
+    # Manually add changepoints to the Plotly figure
+    if len(model.changepoints) > 0:
+        signif_changepoints = model.changepoints[
+            np.abs(np.nanmean(model.params['delta'], axis=0)) >= 0.01
+        ]
+        if len(signif_changepoints) > 0:
+            for cp in signif_changepoints:
+                fig2.add_vline(x=cp, line_width=1, line_dash="dashed", line_color="red")
+
     fig2.update_layout(
         title_text='<b>Decomposed Trend with Detected Changepoints</b>',
         xaxis_title='Date', yaxis_title='Trend Value'
     )
     
     # --- Figure 3: Seasonality Plot ---
-    fig3 = plot_components_plotly(model, forecast, figsize=(900, 200))
+    # Prophet's plot_components_plotly generates a figure with multiple subplots.
+    # We will extract only the yearly seasonality for a cleaner look.
+    fig3_full = plot_components_plotly(model, forecast, figsize=(900, 200))
+    
+    # Create a new, clean figure just for the desired component
+    fig3 = go.Figure()
+    for trace in fig3_full.select_traces(selector=dict(xaxis='x2')): # x2 is typically the yearly component
+        fig3.add_trace(trace)
+    
     fig3.update_layout(
-        title_text='<b>Decomposed Seasonal Effects</b>',
+        title_text='<b>Decomposed Yearly Seasonal Effect</b>',
+        xaxis_title='Day of Year',
+        yaxis_title='Seasonal Component',
         showlegend=False
     )
 
