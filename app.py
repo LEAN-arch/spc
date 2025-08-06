@@ -50,16 +50,85 @@ def wilson_score_interval(p_hat, n, z=1.96):
 
 # ... (All 15 plotting functions are here, fully implemented and enhanced for quality)
 def plot_gage_rr():
-    np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
-    for op_idx, operator in enumerate(['Alice', 'Bob', 'Charlie']):
+    # --- Data Generation ---
+    np.random.seed(10)
+    n_operators, n_samples, n_replicates = 3, 10, 3
+    operators = ['Alice', 'Bob', 'Charlie']
+    sample_means = np.linspace(90, 110, n_samples)
+    operator_bias = {'Alice': 0, 'Bob': -0.5, 'Charlie': 0.8}
+    data = []
+    for op_idx, operator in enumerate(operators):
         for sample_idx, sample_mean in enumerate(sample_means):
-            measurements = np.random.normal(sample_mean + operator_bias[op_idx], 1.5, n_replicates)
-            for m in measurements: data.append([operator, f'Sample_{sample_idx+1}', m])
-    df = pd.DataFrame(data, columns=['Operator', 'Sample', 'Measurement']); model = ols('Measurement ~ C(Sample) + C(Operator) + C(Sample):C(Operator)', data=df).fit(); anova_table = sm.stats.anova_lm(model, typ=2); ms_operator = anova_table['sum_sq']['C(Operator)']/anova_table['df']['C(Operator)']; ms_interaction = anova_table['sum_sq']['C(Sample):C(Operator)']/anova_table['df']['C(Sample):C(Operator)']; ms_error = anova_table['sum_sq']['Residual']/anova_table['df']['Residual']; var_repeatability = ms_error; var_reproducibility = ((ms_operator - ms_interaction) / (n_samples * n_replicates)) + ((ms_interaction - ms_error) / n_replicates); var_part = (anova_table['sum_sq']['C(Sample)']/anova_table['df']['C(Sample)'] - ms_interaction) / (n_operators * n_replicates); variances = {k: max(0, v) for k, v in locals().items() if 'var_' in k}; var_rr = variances['var_repeatability'] + variances['var_reproducibility']; var_total = var_rr + variances['var_part']; pct_rr = (var_rr / var_total) * 100 if var_total > 0 else 0; pct_part = (variances['var_part'] / var_total) * 100 if var_total > 0 else 0
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.7, 0.3], specs=[[{}, {}]], subplot_titles=("Measurements by Sample and Operator", "Variance Contribution")); fig_box = px.box(df, x='Sample', y='Measurement', color='Operator', color_discrete_sequence=px.colors.qualitative.Plotly); fig_strip = px.strip(df, x='Sample', y='Measurement', color='Operator', color_discrete_sequence=px.colors.qualitative.Plotly)
-    for trace in fig_box.data: fig.add_trace(trace, row=1, col=1)
-    for trace in fig_strip.data: fig.add_trace(trace, row=1, col=1)
-    fig.add_trace(go.Bar(x=['% Gage R&R', '% Part-to-Part'], y=[pct_rr, pct_part], marker_color=['salmon', 'skyblue'], text=[f'{pct_rr:.1f}%', f'{pct_part:.1f}%'], textposition='auto'), row=1, col=2); fig.add_hline(y=10, line_dash="dash", line_color="darkgreen", annotation_text="Acceptable < 10%", annotation_position="bottom right", row=1, col=2); fig.add_hline(y=30, line_dash="dash", line_color="darkorange", annotation_text="Unacceptable > 30%", annotation_position="top right", row=1, col=2); fig.update_layout(title_text='Gage R&R Study: Quantifying Measurement System Error', showlegend=False, height=600); fig.update_xaxes(tickangle=45, row=1, col=1); return fig, pct_rr, pct_part
+            measurements = np.random.normal(sample_mean + operator_bias[operator], 1.5, n_replicates)
+            for m_idx, m in enumerate(measurements):
+                data.append([operator, f'Part_{sample_idx+1}', m, m_idx + 1])
+    df = pd.DataFrame(data, columns=['Operator', 'Part', 'Measurement', 'Replicate'])
+    
+    # --- ANOVA Calculation ---
+    model = ols('Measurement ~ C(Part) + C(Operator) + C(Part):C(Operator)', data=df).fit()
+    anova_table = sm.stats.anova_lm(model, typ=2)
+    ms_operator = anova_table.loc['C(Operator)', 'sum_sq'] / anova_table.loc['C(Operator)', 'df']
+    ms_part = anova_table.loc['C(Part)', 'sum_sq'] / anova_table.loc['C(Part)', 'df']
+    ms_interaction = anova_table.loc['C(Part):C(Operator)', 'sum_sq'] / anova_table.loc['C(Part):C(Operator)', 'df']
+    ms_error = anova_table.loc['Residual', 'sum_sq'] / anova_table.loc['Residual', 'df']
+    
+    var_repeatability = ms_error
+    var_reproducibility = ((ms_operator - ms_interaction) / (n_samples * n_replicates)) + ((ms_interaction - ms_error) / n_replicates)
+    var_part = (ms_part - ms_interaction) / (n_operators * n_replicates)
+    
+    variances = {k: max(0, v) for k, v in locals().items() if 'var_' in k}
+    var_rr = variances['var_repeatability'] + variances['var_reproducibility']
+    var_total = var_rr + variances['var_part']
+    pct_rr = (var_rr / var_total) * 100 if var_total > 0 else 0
+    pct_part = (variances['var_part'] / var_total) * 100 if var_total > 0 else 0
+    
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=2, cols=2,
+        column_widths=[0.7, 0.3],
+        row_heights=[0.5, 0.5],
+        specs=[[{"rowspan": 2}, {}], [None, {}]],
+        subplot_titles=("<b>Variation by Part & Operator</b>", "<b>Overall Variation by Operator</b>", "<b>Variance Contribution</b>")
+    )
+
+    # --- Plot 1: Variation by Part & Operator (Large Plot) ---
+    fig_box = px.box(df, x='Part', y='Measurement', color='Operator', color_discrete_sequence=px.colors.qualitative.Plotly)
+    for trace in fig_box.data:
+        trace.update(hoverinfo='none', hovertemplate=None) # Hide default hover for box
+        fig.add_trace(trace, row=1, col=1)
+    
+    # Add mean lines for each operator within each part
+    for operator in operators:
+        operator_df = df[df['Operator'] == operator]
+        part_means = operator_df.groupby('Part')['Measurement'].mean()
+        fig.add_trace(go.Scatter(
+            x=part_means.index, y=part_means.values, mode='lines', 
+            line=dict(width=2), name=f'{operator} Mean',
+            hoverinfo='none', hovertemplate=None,
+            marker_color=fig_box.data[operators.index(operator)].marker.color
+        ), row=1, col=1)
+
+    # --- Plot 2: Overall Variation by Operator ---
+    fig_op_box = px.box(df, x='Operator', y='Measurement', color='Operator', color_discrete_sequence=px.colors.qualitative.Plotly)
+    for trace in fig_op_box.data:
+        fig.add_trace(trace, row=1, col=2)
+        
+    # --- Plot 3: Variance Contribution ---
+    fig.add_trace(go.Bar(x=['% Gage R&R', '% Part Variation'], y=[pct_rr, pct_part], marker_color=['salmon', 'skyblue'], text=[f'{pct_rr:.1f}%', f'{pct_part:.1f}%'], textposition='auto'), row=2, col=2)
+    fig.add_hline(y=10, line_dash="dash", line_color="darkgreen", annotation_text="Acceptable < 10%", annotation_position="bottom right", row=2, col=2)
+    fig.add_hline(y=30, line_dash="dash", line_color="darkorange", annotation_text="Unacceptable > 30%", annotation_position="top right", row=2, col=2)
+    
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>Gage R&R Study: A Multi-View Dashboard</b>',
+        height=800,
+        showlegend=False,
+        bargap=0.1,
+        boxmode='group'
+    )
+    fig.update_xaxes(tickangle=45, row=1, col=1)
+    
+    return fig, pct_rr, pct_part
 
 def plot_linearity():
     np.random.seed(42); nominal = np.array([10, 25, 50, 100, 150, 200, 250]); measured = nominal + np.random.normal(0, 2, len(nominal)) - (nominal/150)**3; X = sm.add_constant(nominal); model = sm.OLS(measured, X).fit(); b, m = model.params
@@ -422,22 +491,36 @@ st.header(method_key)
 # --- Dynamic Content Display ---
 # All 15 elif blocks follow, each with the full, detailed content and professional layout.
 
-if "Gage R&R" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. **Application:** This is the first gate in an assay transfer; you cannot validate a process with an unreliable measurement system.")
+elif "Gage R&R" in method_key:
+    st.markdown("""
+    **Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. 
+    
+    **Definition:** A Gage R&R study partitions the total observed variation into two main sources: the variation from the parts being measured and the variation from the measurement system. The measurement system variation is further broken down into **Repeatability** (equipment variation) and **Reproducibility** (operator variation).
+    
+    **Application:** This is the first and most critical gate in an assay transfer. You cannot validate a process with an unreliable measurement system. Before our Hero can fight the Villain of Process Variation, they must first prove their own weapon—the assay—is sharp, true, and reliable.
+    """)
     col1, col2 = st.columns([0.65, 0.35]);
-    with col1: fig, pct_rr, pct_part = plot_gage_rr(); st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig, pct_rr, pct_part = plot_gage_rr()
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: % Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse"); st.metric(label="💡 KPI: % Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
-            st.markdown("- **Repeatability:** Inherent precision of the instrument/assay."); st.markdown("- **Reproducibility:** Variation between different operators.")
-            st.markdown("**The Bottom Line:** A low % Gage R&R (<10%) proves that your measurement system is a reliable 'ruler' and that most of the variation you see is real process variation, not measurement noise.")
+            st.metric(label="📈 KPI: % Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse")
+            st.metric(label="💡 KPI: % Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
+            st.markdown("- **Run Chart by Part:** Look for consistency. Are the measurements for each part tightly clustered? A wide spread indicates poor repeatability.")
+            st.markdown("- **Variation by Operator:** Look for alignment. Do the boxes for each operator overlap significantly? If one operator's box is much higher or lower, it indicates a reproducibility problem (bias).")
+            st.markdown("**The Bottom Line:** A low % Gage R&R (<10%) proves that your measurement system is a reliable 'ruler' and that most of the variation you see in your process is real, not just measurement noise.")
         with tab2:
-            st.markdown("Based on AIAG (Automotive Industry Action Group) guidelines:"); st.markdown("- **< 10%:** System is **acceptable**."); st.markdown("- **10% - 30%:** **Conditionally acceptable**."); st.markdown("- **> 30%:** System is **unacceptable**.")
+            st.markdown("Based on AIAG (Automotive Industry Action Group) guidelines:")
+            st.markdown("- **< 10%:** System is **acceptable**.")
+            st.markdown("- **10% - 30%:** **Conditionally acceptable**, depending on the importance of the application and cost of improvement.")
+            st.markdown("- **> 30%:** System is **unacceptable** and requires improvement.")
         with tab3:
-            st.markdown("**Origin:** Formalized by the AIAG. ANOVA is the preferred method."); st.markdown("**Mathematical Basis:** ANOVA partitions total variance ($SS_T$) into components: $SS_T = SS_{Part} + SS_{Operator} + ...$. From this, we derive variance components for repeatability ($\hat{\sigma}^2_{EV}$) and reproducibility ($\hat{\sigma}^2_{AV}$) to calculate $\%R\&R = 100 \times (\hat{\sigma}_{R\&R} / \hat{\sigma}_{Total})$.")
+            st.markdown("**Origin:** Formalized by the AIAG. ANOVA is the preferred method.")
+            st.markdown("**Mathematical Basis:** ANOVA partitions total variance ($SS_T$) into components: $SS_T = SS_{Part} + SS_{Operator} + ...$. From this, we derive variance components for repeatability ($\hat{\sigma}^2_{EV}$) and reproducibility ($\hat{\sigma}^2_{AV}$) to calculate:")
+            st.latex(r"\%R\&R = 100 \times \left( \frac{\hat{\sigma}_{R\&R}}{\hat{\sigma}_{Total}} \right)")
 
 elif "Linearity and Range" in method_key:
     # ... (Content for this method)
