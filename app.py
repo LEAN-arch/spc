@@ -1290,7 +1290,7 @@ def plot_ci_concept(n=30):
 # ==============================================================================
 # MAIN APP LAYOUT
 # ==============================================================================
-st.title("🔬 An Interactive Guide to V&V, Tech Transfer and Lifecycle Management Using tools from Statistics, and ML")
+st.title("🔬 An Interactive Guide to V&V, and Tech Transfer Using tools from Statistics, and ML")
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that help support a robust V&V, tech transfer, and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
 st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
