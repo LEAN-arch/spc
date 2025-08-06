@@ -1462,7 +1462,6 @@ elif "Control Forecasting (AI)" in method_key:
             st.markdown("- $s(t)$: Seasonal patterns (e.g., yearly, weekly) modeled with Fourier series.")
             st.markdown("- $h(t)$: Effects of known, potentially irregular events (holidays).")
 
-
 elif "Pass/Fail Analysis" in method_key:
     # ... (Content for this method)
     st.markdown("**Purpose:** To accurately calculate a confidence interval for a proportion. **Application:** Essential for validating qualitative assays (e.g., presence/absence) where the result is a simple pass or fail.")
