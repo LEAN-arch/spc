@@ -543,7 +543,90 @@ def plot_shewhart():
     fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1)
     
     return fig
-Small Shift Detection
+def plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma):
+    # --- Data Generation ---
+    np.random.seed(101)
+    in_control_data = np.random.normal(50, 2, 25)
+    shift_data = np.random.normal(52.5, 2, 15) # A small 1.25-sigma shift
+    data = np.concatenate([in_control_data, shift_data])
+    target = np.mean(in_control_data)
+    sigma = np.std(in_control_data, ddof=1)
+    x_axis = np.arange(1, len(data) + 1)
+
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True,
+        subplot_titles=("<b>Raw Process Data</b>", f"<b>{chart_type} Chart</b>"),
+        vertical_spacing=0.1
+    )
+
+    # --- Plot 1: Raw Data ---
+    fig.add_trace(go.Scatter(
+        x=x_axis, y=data, mode='lines+markers', name='Daily Control',
+        marker=dict(color='grey'), line=dict(color='lightgrey'),
+        hovertemplate="Run %{x}<br>Value: %{y:.2f}<extra></extra>"
+    ), row=1, col=1)
+    fig.add_hline(y=target, line_dash="dash", line_color="black", annotation_text=f"Target Mean={target:.1f}", row=1, col=1)
+    fig.add_vrect(x0=25.5, x1=40.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0,
+                  annotation_text="1.25σ Shift Introduced", annotation_position="top left", row=1, col=1)
+    
+    # --- Plot 2: EWMA or CUSUM Chart ---
+    if chart_type == 'EWMA':
+        ewma_vals = np.zeros_like(data); ewma_vals[0] = target
+        for i in range(1, len(data)):
+            ewma_vals[i] = lmbda * data[i] + (1 - lmbda) * ewma_vals[i-1]
+        
+        L = 3
+        UCL = [target + L * sigma * np.sqrt((lmbda / (2 - lmbda)) * (1 - (1 - lmbda)**(2 * i))) for i in range(1, len(data) + 1)]
+        out_idx = np.where(ewma_vals > UCL)[0]
+        
+        fig.add_trace(go.Scatter(
+            x=x_axis, y=ewma_vals, mode='lines+markers', name=f'EWMA (λ={lmbda})',
+            line=dict(color='purple'), hovertemplate="Run %{x}<br>EWMA: %{y:.2f}<extra></extra>"
+        ), row=2, col=1)
+        fig.add_trace(go.Scatter(
+            x=x_axis, y=UCL, mode='lines', name='EWMA UCL', line=dict(color='red', dash='dash')
+        ), row=2, col=1)
+        
+        if len(out_idx) > 0:
+            signal_idx = out_idx[0]
+            fig.add_trace(go.Scatter(
+                x=[x_axis[signal_idx]], y=[ewma_vals[signal_idx]], mode='markers',
+                marker=dict(color='red', size=15, symbol='x'), name='Signal'
+            ), row=2, col=1)
+            fig.add_annotation(x=x_axis[signal_idx], y=ewma_vals[signal_idx], text="<b>Signal!</b>", showarrow=True, arrowhead=2, ax=0, ay=-40, row=2, col=1)
+        
+        fig.update_yaxes(title_text="EWMA Value", row=2, col=1)
+
+    else: # CUSUM
+        k = k_sigma * sigma; H = H_sigma * sigma
+        SH, SL = np.zeros_like(data), np.zeros_like(data)
+        for i in range(1, len(data)):
+            SH[i] = max(0, SH[i-1] + (data[i] - target) - k)
+            SL[i] = max(0, SL[i-1] + (target - data[i]) - k)
+        out_idx = np.where((SH > H) | (SL > H))[0]
+        
+        fig.add_trace(go.Scatter(x=x_axis, y=SH, mode='lines+markers', name='High-Side CUSUM (SH)', line=dict(color='darkcyan')), row=2, col=1)
+        fig.add_trace(go.Scatter(x=x_axis, y=SL, mode='lines+markers', name='Low-Side CUSUM (SL)', line=dict(color='darkorange')), row=2, col=1)
+        fig.add_hline(y=H, line_dash="dash", line_color="red", annotation_text=f"Limit H={H:.1f}", row=2, col=1)
+        
+        if len(out_idx) > 0:
+            signal_idx = out_idx[0]
+            fig.add_trace(go.Scatter(x=[x_axis[signal_idx]], y=[SH[signal_idx]], mode='markers', marker=dict(color='red', size=15, symbol='x'), name='Signal'), row=2, col=1)
+            fig.add_annotation(x=x_axis[signal_idx], y=SH[signal_idx], text="<b>Signal!</b>", showarrow=True, arrowhead=2, ax=0, ay=-40, row=2, col=1)
+
+        fig.update_yaxes(title_text="Cumulative Sum", row=2, col=1)
+        
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text=f'<b>Small Shift Detection Dashboard ({chart_type})</b>',
+        height=800,
+        showlegend=False
+    )
+    fig.update_yaxes(title_text="Assay Response", row=1, col=1)
+    fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1)
+    
+    return fig
 
 def plot_multi_rule():
     np.random.seed(3); mean, std = 100, 2; data = np.concatenate([np.random.normal(mean, std, 5), [mean + 2.1*std, mean + 2.2*std], np.random.normal(mean, std, 2), np.linspace(mean-0.5*std, mean-2*std, 6), [mean + 3.5*std], np.random.normal(mean + 1.5*std, 0.3, 4), np.random.normal(mean, std, 3), np.random.normal(mean - 1.5*std, 0.3, 5)]); x = np.arange(1, len(data) + 1); fig = go.Figure(); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='QC Sample', line=dict(color='darkblue')));
