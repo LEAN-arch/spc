@@ -543,21 +543,7 @@ def plot_shewhart():
     fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1)
     
     return fig
-def plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma):
-    np.random.seed(101); data = np.concatenate([np.random.normal(50, 2, 25), np.random.normal(52.5, 2, 15)]); target = np.mean(data[:25]); sigma = np.std(data[:25], ddof=1); x_axis = np.arange(1, len(data)+1); fig = go.Figure()
-    if chart_type == 'EWMA':
-        ewma_vals = np.zeros_like(data); ewma_vals[0] = target;
-        for i in range(1, len(data)): ewma_vals[i] = lmbda * data[i] + (1 - lmbda) * ewma_vals[i-1]
-        L = 3; UCL = [target + L*sigma*np.sqrt((lmbda/(2-lmbda))*(1-(1-lmbda)**(2*i))) for i in range(1, len(data)+1)]; out_idx = np.where(ewma_vals > UCL)[0]
-        fig.add_trace(go.Scatter(x=x_axis, y=data, mode='lines+markers', name='Daily Control', marker=dict(color='grey', opacity=0.5))); fig.add_trace(go.Scatter(x=x_axis, y=ewma_vals, mode='lines+markers', name=f'EWMA (λ={lmbda})', line=dict(color='purple'))); fig.add_trace(go.Scatter(x=x_axis, y=UCL, mode='lines', name='EWMA UCL', line=dict(color='red'))); fig.update_layout(title_text='EWMA Chart for Detecting Slow Drift', yaxis_title='Assay Response (EU/mL)')
-        if len(out_idx) > 0: fig.add_trace(go.Scatter(x=[x_axis[out_idx[0]]], y=[ewma_vals[out_idx[0]]], mode='markers', marker=dict(color='red', size=15, symbol='x'), name='Signal'))
-    else:
-        k = k_sigma * sigma; H = H_sigma * sigma; SH, SL = np.zeros_like(data), np.zeros_like(data)
-        for i in range(1, len(data)): SH[i] = max(0, SH[i-1] + (data[i] - target) - k); SL[i] = max(0, SL[i-1] + (target - data[i]) - k)
-        out_idx = np.where((SH > H) | (SL > H))[0]
-        fig.add_trace(go.Scatter(x=x_axis, y=SH, mode='lines+markers', name='High-Side CUSUM (SH)', line=dict(color='darkcyan'))); fig.add_trace(go.Scatter(x=x_axis, y=SL, mode='lines+markers', name='Low-Side CUSUM (SL)', line=dict(color='darkorange'))); fig.add_hline(y=H, line_dash="dash", line_color="red", annotation_text=f"Limit H={H:.1f}"); fig.update_layout(title_text='CUSUM Chart for Detecting Sustained Shifts', yaxis_title='Cumulative Sum');
-        if len(out_idx) > 0: fig.add_trace(go.Scatter(x=[x_axis[out_idx[0]]], y=[SH[out_idx[0]]], mode='markers', marker=dict(color='red', size=15, symbol='x'), name='Signal'))
-    fig.add_vrect(x0=25.5, x1=40.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="Process Shift"); fig.add_hline(y=target if chart_type=='EWMA' else 0, line_dash="dot", line_color="black", annotation_text="Target"); fig.update_layout(height=600, xaxis_title='Analytical Run Number'); return fig
+Small Shift Detection
 
 def plot_multi_rule():
     np.random.seed(3); mean, std = 100, 2; data = np.concatenate([np.random.normal(mean, std, 5), [mean + 2.1*std, mean + 2.2*std], np.random.normal(mean, std, 2), np.linspace(mean-0.5*std, mean-2*std, 6), [mean + 3.5*std], np.random.normal(mean + 1.5*std, 0.3, 4), np.random.normal(mean, std, 3), np.random.normal(mean - 1.5*std, 0.3, 5)]); x = np.arange(1, len(data) + 1); fig = go.Figure(); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='QC Sample', line=dict(color='darkblue')));
@@ -902,23 +888,42 @@ elif "Process Stability" in method_key:
             st.markdown("Where $D_4$ is another constant (3.267 for a moving range of size 2).")
             
 elif "Small Shift Detection" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To implement sensitive charts that can detect small, systematic drifts or shifts in assay performance that a Shewhart chart might miss. **Application:** Long-term monitoring of controls to detect gradual reagent degradation or instrument drift.")
-    chart_type = st.sidebar.radio("Select Chart Type:", ('EWMA', 'CUSUM')); col1, col2 = st.columns([0.65, 0.35])
+    st.markdown("""
+    **Purpose:** To implement sensitive charts that can detect small, sustained shifts in the process mean that a standard Shewhart chart would miss.
+    
+    **Definition:**
+    - **EWMA (Exponentially Weighted Moving Average):** A chart that gives exponentially decreasing weight to older observations, making it sensitive to small, gradual drifts.
+    - **CUSUM (Cumulative Sum):** A chart that accumulates deviations from a target value, making it the most statistically powerful tool for detecting small, abrupt, and sustained shifts.
+    
+    **Application:** These are the Hero's early-warning systems. After the initial chaos of transfer is tamed (Act II), the Villain of Variation becomes subtle. It introduces slow instrument drift or a slight bias from a new reagent lot. A Shewhart chart might not notice, but these advanced charts will, allowing the Hero to act *before* a major out-of-spec event occurs.
+    """)
+    chart_type = st.sidebar.radio("Select Chart Type:", ('EWMA', 'CUSUM'))
+    col1, col2 = st.columns([0.65, 0.35])
     with col1:
-        if chart_type == 'EWMA': lmbda = st.sidebar.slider("EWMA Lambda (λ)", 0.05, 1.0, 0.2, 0.05); st.plotly_chart(plot_ewma_cusum(chart_type, lmbda, 0, 0), use_container_width=True)
-        else: k_sigma = st.sidebar.slider("CUSUM Slack (k, in σ)", 0.25, 1.5, 0.5, 0.25); H_sigma = st.sidebar.slider("CUSUM Limit (H, in σ)", 2.0, 8.0, 5.0, 0.5); st.plotly_chart(plot_ewma_cusum(chart_type, 0, k_sigma, H_sigma), use_container_width=True)
+        if chart_type == 'EWMA':
+            lmbda = st.sidebar.slider("EWMA Lambda (λ)", 0.05, 1.0, 0.2, 0.05, help="Smaller λ is more sensitive to small shifts but slower to react.")
+            st.plotly_chart(plot_ewma_cusum(chart_type, lmbda, 0, 0), use_container_width=True)
+        else:
+            k_sigma = st.sidebar.slider("CUSUM Slack (k, in σ)", 0.25, 1.5, 0.5, 0.25, help="Set to half the size of the shift you want to detect (e.g., 0.5 to detect a 1-sigma shift).")
+            H_sigma = st.sidebar.slider("CUSUM Limit (H, in σ)", 2.0, 8.0, 5.0, 0.5, help="The decision interval or control limit.")
+            st.plotly_chart(plot_ewma_cusum(chart_type, 0, k_sigma, H_sigma), use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Shift Detection", value="Signal Detected", delta="Action Required", delta_color="inverse"); st.markdown("- **EWMA:** Best for detecting small, gradual *drifts*."); st.markdown("- **CUSUM:** Best for detecting small, *abrupt and sustained* shifts.")
-            st.markdown("**The Bottom Line:** These are your early-warning systems. They catch the Villain (Variation) when it's being subtle, before it causes a major out-of-spec event.")
+            st.metric(label="📈 KPI: Shift Detection", value="Signal Detected", delta="Action Required", delta_color="inverse")
+            st.markdown("- **Top Plot (Raw Data):** Notice how the small 1.25σ shift after run 25 is almost impossible to see by eye.")
+            st.markdown("- **Bottom Plot (EWMA/CUSUM):** This chart makes the invisible visible. It accumulates the small deviations until they cross the red control limit, providing a clear statistical signal.")
+            st.markdown("**The Bottom Line:** These charts act as a magnifying glass for the process mean, allowing you to catch subtle problems early and maintain a high level of quality and consistency.")
         with tab2:
-            st.markdown("- **EWMA Rule:** For long-term monitoring, use a small `λ` (e.g., **0.1 to 0.3**)."); st.markdown("- **CUSUM Rule:** Set `k` to half the magnitude of the shift to detect.")
+            st.markdown("- **EWMA Rule:** For long-term monitoring, a `λ` between **0.1 to 0.3** is a common choice. A signal occurs when the EWMA line crosses the control limits.")
+            st.markdown("- **CUSUM Rule:** To detect a shift of size $\delta$, set the slack parameter `k` to approximately **$\delta / 2$**. A signal occurs when the CUSUM statistic crosses the decision interval `H`.")
         with tab3:
-            st.markdown("**Origin:** EWMA (Roberts, 1959); CUSUM (Page, 1954)."); st.markdown("**Mathematical Basis:** EWMA: $z_i = \\lambda x_i + (1-\\lambda)z_{i-1}$. CUSUM: $SH_i = \\max(0, SH_{i-1} + (x_i - \\mu_0) - k)$.")
-
+            st.markdown("**Origin:** EWMA (Roberts, 1959); CUSUM (Page, 1954). These were developed to overcome the Shewhart chart's relative insensitivity to small, sustained shifts.")
+            st.markdown("**Mathematical Basis (CUSUM):** Two statistics accumulate deviations above and below the target, incorporating a slack value, k:")
+            st.latex("SH_i = \\max(0, SH_{i-1} + (x_i - \\mu_0) - k)")
+            st.latex("SL_i = \\max(0, SL_{i-1} + (\\mu_0 - x_i) - k)")
+            st.markdown("A signal occurs if $SH_i$ or $SL_i > H$.")
 elif "Run Validation" in method_key:
     # ... (Content for this method)
     st.markdown("**Purpose:** To create an objective, statistically-driven system for accepting or rejecting each analytical run based on QC sample performance. **Application:** Routine QC in a regulated environment.")
