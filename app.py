@@ -12,13 +12,11 @@ from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LogisticRegression
 from prophet import Prophet
 from prophet.plot import plot_plotly, plot_components_plotly
-import graphviz
-import os
 
 # ==============================================================================
 # APP CONFIGURATION
 # ==============================================================================
-st.set_page_config(layout="wide", page_title="An Interactive Guide to Assay Transfer Statistics")
+st.set_page_config(layout="wide", page_title="An Interactive Guide to Assay Transfer Statistics", page_icon="📈")
 
 st.markdown("""
 <style>
@@ -39,41 +37,37 @@ st.markdown("""
 # HELPER & GRAPHICS GENERATION FUNCTIONS
 # ==============================================================================
 @st.cache_data
-def create_conceptual_map():
-    """Generates the hierarchical map using Graphviz."""
-    dot = graphviz.Digraph('StatisticalConcepts', comment='Hierarchical Map')
-    dot.attr(rankdir='LR', splines='spline', overlap='false', nodesep='0.4', ranksep='1.5')
-    dot.attr('node', shape='circle', style='filled', penwidth='2', fontname='Helvetica', fontsize='12')
-    dot.attr('edge', color='gray', arrowhead='normal')
+def create_conceptual_map_plotly():
+    """Generates the hierarchical map using Plotly."""
+    nodes = {
+        'DS': ('Data Science', 0, 3), 'BS': ('Biostatistics', 0, 2), 'ST': ('Statistics', 0, 1), 'IE': ('Industrial Engineering', 0, 0),
+        'SI': ('Statistical Inference', 1, 2.5), 'SPC': ('SPC', 1, 0.5),
+        'WS': ('Wilson Score', 2, 4), 'BAY': ('Bayesian Statistics', 2, 3.5), 'CI': ('Confidence Intervals', 2, 3), 'HT': ('Hypothesis Testing', 2, 2.5), 'NR': ('Nelson Rules', 2, 2), 'WR': ('Westgard Rules', 2, 1.5), 'PC': ('Process Capability', 2, 1), 'CC': ('Control Charts', 2, 0.5),
+        'PE': ('Proportion Estimates', 3, 4), 'PP': ('Posterior Probabilities', 3, 3.5), 'ZME': ('Z-score / Margin of Error', 3, 3), 'TAV': ('T-tests / ANOVA', 3, 2.5), 'MQA': ('Manufacturing QA', 3, 2), 'CL': ('Clinical Labs', 3, 1.5), 'CSM': ('CUSUM', 3, 1), 'EWM': ('EWMA', 3, 0.5), 'SWH': ('Shewhart Charts', 3, 0),
+    }
+    edges = [('IE', 'SPC'), ('ST', 'SPC'), ('ST', 'SI'), ('BS', 'SI'), ('DS', 'SI'), ('SPC', 'CC'), ('SPC', 'PC'), ('SI', 'HT'), ('SI', 'CI'), ('SI', 'BAY'), ('SI', 'WR'), ('SI', 'NR'), ('CC', 'SWH'), ('CC', 'EWM'), ('CC', 'CSM'), ('PC', 'MQA'), ('WR', 'CL'), ('NR', 'MQA'), ('HT', 'TAV'), ('CI', 'ZME'), ('CI', 'WS'), ('BAY', 'PP'), ('WS', 'PE')]
+    
+    fig = go.Figure()
+    
+    # Add edges
+    for start, end in edges:
+        fig.add_trace(go.Scatter(x=[nodes[start][1], nodes[end][1]], y=[nodes[start][2], nodes[end][2]], mode='lines', line=dict(color='grey', width=1)))
 
-    c_discipline = "#e0f2f1"; c_domain = "#b2dfdb"; c_subdomain = "#80cbc4"; c_tool = "#4db6ac"
+    # Add nodes
+    node_x = [v[1] for v in nodes.values()]; node_y = [v[2] for v in nodes.values()]; node_text = [v[0] for v in nodes.values()]
+    colors = ["#e0f2f1"]*4 + ["#b2dfdb"]*2 + ["#80cbc4"]*8 + ["#4db6ac"]*9
+    fig.add_trace(go.Scatter(x=node_x, y=node_y, text=node_text, mode='markers+text', textposition="top center", marker=dict(size=50, color=colors, line=dict(width=2, color='black'))))
 
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('DS', 'Data Science', fillcolor=c_discipline); s.node('BS', 'Biostatistics', fillcolor=c_discipline); s.node('ST', 'Statistics', fillcolor=c_discipline); s.node('IE', 'Industrial Engineering', fillcolor=c_discipline)
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('SI', 'Statistical Inference', fillcolor=c_domain); s.node('SPC', 'SPC', fillcolor=c_domain)
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('WS', 'Wilson Score', fillcolor=c_subdomain); s.node('BAY', 'Bayesian Statistics', fillcolor=c_subdomain); s.node('CI', 'Confidence Intervals', fillcolor=c_subdomain); s.node('HT', 'Hypothesis Testing', fillcolor=c_subdomain); s.node('NR', 'Nelson Rules', fillcolor=c_subdomain); s.node('WR', 'Westgard Rules', fillcolor=c_subdomain); s.node('PC', 'Process Capability', fillcolor=c_subdomain); s.node('CC', 'Control Charts', fillcolor=c_subdomain)
-    with dot.subgraph() as s:
-        s.attr(rank='same'); s.node('PE', 'Proportion Estimates', fillcolor=c_tool); s.node('PP', 'Posterior Probabilities', fillcolor=c_tool); s.node('ZME', 'Z-score / Margin of Error', fillcolor=c_tool); s.node('TAV', 'T-tests / ANOVA', fillcolor=c_tool); s.node('MQA', 'Manufacturing QA', fillcolor=c_tool); s.node('CL', 'Clinical Labs', fillcolor=c_tool); s.node('CSM', 'CUSUM', fillcolor=c_tool); s.node('EWM', 'EWMA', fillcolor=c_tool); s.node('SWH', 'Shewhart Charts', fillcolor=c_tool); s.node('ML', 'Machine Learning', fillcolor=c_tool); s.node('CT', 'Clinical Trials', fillcolor=c_tool); s.node('QE', 'Quality Engineering', fillcolor=c_tool)
-
-    # Edges - CORRECTED FORMAT
-    dot.edges([('IE', 'SPC'), ('ST', 'SPC'), ('ST', 'SI'), ('BS', 'SI'), ('DS', 'SI'), ('DS', 'ML')])
-    dot.edges([('BS', 'CT'), ('IE', 'QE')])
-    dot.edges([('SPC', 'CC'), ('SPC', 'PC'), ('SPC', 'QE')])
-    dot.edges([('SI', 'HT'), ('SI', 'CI'), ('SI', 'BAY'), ('SI', 'WR'), ('SI', 'NR'), ('SI', 'CT'), ('SI', 'ML')])
-    dot.edges([('CC', 'SWH'), ('CC', 'EWM'), ('CC', 'CSM')])
-    dot.edges([('PC', 'MQA')])
-    dot.edges([('WR', 'CL')])
-    dot.edges([('NR', 'MQA')])
-    dot.edges([('HT', 'TAV')])
-    dot.edges([('CI', 'ZME'), ('CI', 'WS')])
-    dot.edges([('BAY', 'PP')])
-    dot.edges([('WS', 'PE')])
-
-    output_filename = 'conceptual_map'
-    dot.render(output_filename, format='png', cleanup=True)
-    return f"{output_filename}.png"
+    fig.update_layout(
+        title_text='Hierarchical Map of Statistical Concepts in Quality & Development',
+        showlegend=False,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        height=700,
+        margin=dict(l=20, r=20, t=40, b=20),
+        plot_bgcolor='#f0f2f6'
+    )
+    return fig
 
 def wilson_score_interval(p_hat, n, z=1.96):
     if n == 0: return (0, 1)
@@ -84,7 +78,7 @@ def wilson_score_interval(p_hat, n, z=1.96):
 # ==============================================================================
 # PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
 # ==============================================================================
-# All 15 plotting functions are included here, unabridged.
+# All 15 plotting functions are included here, unabridged, with their Plotly implementations.
 
 def plot_gage_rr():
     np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
@@ -186,13 +180,9 @@ def plot_ci_concept():
 # MAIN APP LAYOUT
 # ==============================================================================
 st.title("🔬 An Interactive Guide to Assay Transfer Statistics")
-st.markdown("This application offers a collection of interactive tools to explore the statistical methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
+st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore the statistical methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
-# Generate and display the conceptual map
-if not os.path.exists('conceptual_map.png'):
-    with st.spinner("Generating conceptual map..."):
-        create_conceptual_map()
-st.image("conceptual_map.png", caption="A hierarchical map showing the relationship between academic disciplines, core domains, and the specific tools covered in this guide.", use_container_width=True)
+st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
 
@@ -209,7 +199,6 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 st.header(method_key)
 
 # --- Dynamic Content Display ---
-
 if "Gage R&R" in method_key:
     st.markdown("**Objective:** Before evaluating a process, you must first validate the measurement system. A Gage R&R study quantifies the inherent variability (error) of the assay, partitioning it into components like repeatability and reproducibility.")
     col1, col2 = st.columns([0.7, 0.3]);
