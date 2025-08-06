@@ -1578,11 +1578,44 @@ elif "Small Shift Detection" in method_key:
             st.markdown("- **EWMA Rule:** For long-term monitoring, a `λ` between **0.1 to 0.3** is a common choice. A signal occurs when the EWMA line crosses the control limits.")
             st.markdown("- **CUSUM Rule:** To detect a shift of size $\delta$, set the slack parameter `k` to approximately **$\delta / 2$**. A signal occurs when the CUSUM statistic crosses the decision interval `H`.")
         with tab3:
-            st.markdown("**Origin:** EWMA (Roberts, 1959); CUSUM (Page, 1954). These were developed to overcome the Shewhart chart's relative insensitivity to small, sustained shifts.")
-            st.markdown("**Mathematical Basis (CUSUM):** Two statistics accumulate deviations above and below the target, incorporating a slack value, k:")
-            st.latex("SH_i = \\max(0, SH_{i-1} + (x_i - \\mu_0) - k)")
-            st.latex("SL_i = \\max(0, SL_{i-1} + (\\mu_0 - x_i) - k)")
-            st.markdown("A signal occurs if $SH_i$ or $SL_i > H$.")
+            st.markdown("""
+            #### Origin and Development
+
+            **Shewhart's Limitation:** The foundational Shewhart chart is a powerful tool, but its design is optimized for detecting *large* shifts in the process mean (typically 1.5σ or greater). It achieves this by treating each data point independently, giving it no "memory" of past performance. This makes it relatively insensitive to small, sustained shifts where the process mean might drift by only 0.5σ or 1σ. In this scenario, individual points are unlikely to fall outside the ±3σ limits, yet the process is clearly no longer centered on its target.
+
+            **The Need for Memory:** Both EWMA and CUSUM were developed in the 1950s to address this specific limitation by incorporating "memory" into the control chart.
+
+            - **EWMA (Exponentially Weighted Moving Average):** Proposed by S. W. Roberts in a 1959 paper, this method creates a smoothed average where the influence of past data points decays exponentially. This averaging effect filters out random noise, making the underlying trend or small shift much easier to detect. It's akin to looking at a 7-day rolling average of stock prices instead of the chaotic daily price.
+
+            - **CUSUM (Cumulative Sum):** Developed by E. S. Page in 1954, this method is even more direct. It literally accumulates the deviations of each data point from the target. If the process is on target, the positive and negative deviations will cancel out, and the cumulative sum will hover around zero. If the process shifts even slightly, the deviations will consistently be in one direction, causing the cumulative sum to trend steadily up or down until it crosses a decision threshold. CUSUM is considered the most statistically powerful method for detecting small, sustained shifts of a specific magnitude.
+
+            ---
+            
+            #### Mathematical Basis
+
+            **EWMA:**
+            The core of the EWMA chart is its recursive formula. The EWMA statistic at time $i$, denoted $z_i$, is a weighted average of the current observation $x_i$ and the previous EWMA value $z_{i-1}$:
+            """)
+            st.latex(r"z_i = \lambda x_i + (1-\lambda)z_{i-1}")
+            st.markdown(r"""
+            Where $\lambda$ (lambda) is the smoothing parameter ($0 < \lambda \le 1$). The control limits for EWMA are time-varying because the variance of the statistic decreases as more points are added:
+            """)
+            st.latex(r"UCL_i = \mu_0 + L \sigma \sqrt{\frac{\lambda}{2-\lambda} [1 - (1-\lambda)^{2i}]}")
+            st.markdown(r"""
+            Where $L$ is the number of standard deviations (typically 3), $\mu_0$ is the target mean, and $\sigma$ is the process standard deviation.
+
+            **CUSUM:**
+            The CUSUM chart uses two one-sided statistics to detect upward ($SH$) and downward ($SL$) shifts.
+            - **Slack Value (k):** This is a reference value, also called the "allowance." It's the amount of deviation from the target that we are willing to tolerate before the sum starts to accumulate. It is typically set to half the magnitude of the shift ($\delta$) you want to detect. For example, to detect a 1-sigma shift ($\delta=1\sigma$), you would set $k = 0.5\sigma$.
+            - **Decision Interval (H):** This is the control limit. When the cumulative sum exceeds this value, the process is considered out of control. It is typically set to 4 or 5 times the process standard deviation ($H=4\sigma$ or $H=5\sigma$).
+
+            The recursive formulas are:
+            """)
+            st.latex(r"SH_i = \max(0, SH_{i-1} + (x_i - \mu_0) - k)")
+            st.latex(r"SL_i = \max(0, SL_{i-1} + (\mu_0 - x_i) - k)")
+            st.markdown(r"""
+            The `max(0, ...)` term is crucial; it prevents the sum from "recovering." If the process drifts back towards the mean, the sum simply resets to zero, ready to detect the next shift. A signal is triggered if $SH_i > H$ or $SL_i > H$.
+            """)
 
 elif "Run Validation" in method_key:
     st.markdown("""
