@@ -10,9 +10,10 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LogisticRegression
-from sklearn.inspection import DecisionBoundaryDisplay
 from prophet import Prophet
 from prophet.plot import plot_plotly, plot_components_plotly
+import graphviz
+import os
 
 # ==============================================================================
 # APP CONFIGURATION
@@ -35,85 +36,123 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# HELPER FUNCTIONS
+# HELPER & GRAPHICS GENERATION FUNCTIONS
 # ==============================================================================
+@st.cache_data
+def create_conceptual_map():
+    """Generates the hierarchical map using Graphviz."""
+    dot = graphviz.Digraph('StatisticalConcepts', comment='Hierarchical Map')
+    dot.attr(rankdir='LR', splines='spline', overlap='false', nodesep='0.4', ranksep='1.5')
+    dot.attr('node', shape='circle', style='filled', penwidth='2', fontname='Helvetica', fontsize='12')
+    dot.attr('edge', color='gray', arrowhead='normal')
+
+    # Colors based on the legend
+    c_discipline = "#e0f2f1"  # Lightest Green
+    c_domain = "#b2dfdb"      # Medium Green
+    c_subdomain = "#80cbc4"    # Darker Green
+    c_tool = "#4db6ac"        # Teal (A bit lighter than the darkest blue for better text contrast)
+
+    # Level 1: Academic Disciplines
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('DS', 'Data Science', fillcolor=c_discipline)
+        s.node('BS', 'Biostatistics', fillcolor=c_discipline)
+        s.node('ST', 'Statistics', fillcolor=c_discipline)
+        s.node('IE', 'Industrial Engineering', fillcolor=c_discipline)
+
+    # Level 2: Core Domains
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('SI', 'Statistical Inference', fillcolor=c_domain)
+        s.node('SPC', 'SPC', fillcolor=c_domain)
+
+    # Level 3: Sub-Domains & Concepts
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('WS', 'Wilson Score', fillcolor=c_subdomain)
+        s.node('BAY', 'Bayesian Statistics', fillcolor=c_subdomain)
+        s.node('CI', 'Confidence Intervals', fillcolor=c_subdomain)
+        s.node('HT', 'Hypothesis Testing', fillcolor=c_subdomain)
+        s.node('NR', 'Nelson Rules', fillcolor=c_subdomain)
+        s.node('WR', 'Westgard Rules', fillcolor=c_subdomain)
+        s.node('PC', 'Process Capability', fillcolor=c_subdomain)
+        s.node('CC', 'Control Charts', fillcolor=c_subdomain)
+
+    # Level 4: Specific Tools & Applications
+    with dot.subgraph() as s:
+        s.attr(rank='same')
+        s.node('PE', 'Proportion Estimates', fillcolor=c_tool)
+        s.node('PP', 'Posterior Probabilities', fillcolor=c_tool)
+        s.node('ZME', 'Z-score / Margin of Error', fillcolor=c_tool)
+        s.node('TAV', 'T-tests / ANOVA', fillcolor=c_tool)
+        s.node('MQA', 'Manufacturing QA', fillcolor=c_tool)
+        s.node('CL', 'Clinical Labs', fillcolor=c_tool)
+        s.node('CSM', 'CUSUM', fillcolor=c_tool)
+        s.node('EWM', 'EWMA', fillcolor=c_tool)
+        s.node('SWH', 'Shewhart Charts', fillcolor=c_tool)
+        s.node('ML', 'Machine Learning', fillcolor=c_tool)
+        s.node('CT', 'Clinical Trials', fillcolor=c_tool)
+        s.node('QE', 'Quality Engineering', fillcolor=c_tool)
+
+    # Edges
+    dot.edges(['IE-SPC', 'ST-SPC', 'ST-SI', 'BS-SI', 'DS-SI', 'DS-ML'])
+    dot.edges(['BS-CT', 'IE-QE'])
+    dot.edges(['SPC-CC', 'SPC-PC', 'SPC-QE'])
+    dot.edges(['SI-HT', 'SI-CI', 'SI-BAY', 'SI-WR', 'SI-NR', 'SI-CT', 'SI-ML'])
+    dot.edges(['CC-SWH', 'CC-EWM', 'CC-CSM'])
+    dot.edges(['PC-MQA'])
+    dot.edges(['WR-CL'])
+    dot.edges(['NR-MQA'])
+    dot.edges(['HT-TAV'])
+    dot.edges(['CI-ZME', 'CI-WS'])
+    dot.edges(['BAY-PP'])
+    dot.edges(['WS-PE'])
+
+    # Render the graph
+    output_filename = 'conceptual_map'
+    dot.render(output_filename, format='png', cleanup=True)
+    return f"{output_filename}.png"
+
 def wilson_score_interval(p_hat, n, z=1.96):
     if n == 0: return (0, 1)
     term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n
     term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2)))
     return (term1 - term2) / denom, (term1 + term2) / denom
 
-# ==============================================================================
-# PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
-# ==============================================================================
-
+# ... (All 15 plotting functions are included here, unabridged)
 def plot_gage_rr():
-    np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3
-    sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
+    np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3; sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
     for op_idx, operator in enumerate(['Alice', 'Bob', 'Charlie']):
         for sample_idx, sample_mean in enumerate(sample_means):
             measurements = np.random.normal(sample_mean + operator_bias[op_idx], 1.5, n_replicates)
             for m in measurements: data.append([operator, f'Sample_{sample_idx+1}', m])
-    df = pd.DataFrame(data, columns=['Operator', 'Sample', 'Measurement'])
-    model = ols('Measurement ~ C(Sample) + C(Operator) + C(Sample):C(Operator)', data=df).fit(); anova_table = sm.stats.anova_lm(model, typ=2)
-    ms_operator = anova_table['sum_sq']['C(Operator)']/anova_table['df']['C(Operator)']; ms_interaction = anova_table['sum_sq']['C(Sample):C(Operator)']/anova_table['df']['C(Sample):C(Operator)']; ms_error = anova_table['sum_sq']['Residual']/anova_table['df']['Residual']
-    var_repeatability = ms_error; var_reproducibility = ((ms_operator - ms_interaction) / (n_samples * n_replicates)) + ((ms_interaction - ms_error) / n_replicates); var_part = (anova_table['sum_sq']['C(Sample)']/anova_table['df']['C(Sample)'] - ms_interaction) / (n_operators * n_replicates)
-    variances = {k: max(0, v) for k, v in locals().items() if 'var_' in k}; var_rr = variances['var_repeatability'] + variances['var_reproducibility']; var_total = var_rr + variances['var_part']
-    pct_rr = (var_rr / var_total) * 100 if var_total > 0 else 0; pct_part = (variances['var_part'] / var_total) * 100 if var_total > 0 else 0
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.7, 0.3], specs=[[{}, {}]], subplot_titles=("Measurements by Sample and Operator", "Variance Contribution"))
-    fig_box = px.box(df, x='Sample', y='Measurement', color='Operator', points=False)
-    fig_strip = px.strip(df, x='Sample', y='Measurement', color='Operator')
+    df = pd.DataFrame(data, columns=['Operator', 'Sample', 'Measurement']); model = ols('Measurement ~ C(Sample) + C(Operator) + C(Sample):C(Operator)', data=df).fit(); anova_table = sm.stats.anova_lm(model, typ=2); ms_operator = anova_table['sum_sq']['C(Operator)']/anova_table['df']['C(Operator)']; ms_interaction = anova_table['sum_sq']['C(Sample):C(Operator)']/anova_table['df']['C(Sample):C(Operator)']; ms_error = anova_table['sum_sq']['Residual']/anova_table['df']['Residual']; var_repeatability = ms_error; var_reproducibility = ((ms_operator - ms_interaction) / (n_samples * n_replicates)) + ((ms_interaction - ms_error) / n_replicates); var_part = (anova_table['sum_sq']['C(Sample)']/anova_table['df']['C(Sample)'] - ms_interaction) / (n_operators * n_replicates); variances = {k: max(0, v) for k, v in locals().items() if 'var_' in k}; var_rr = variances['var_repeatability'] + variances['var_reproducibility']; var_total = var_rr + variances['var_part']; pct_rr = (var_rr / var_total) * 100 if var_total > 0 else 0; pct_part = (variances['var_part'] / var_total) * 100 if var_total > 0 else 0
+    fig = make_subplots(rows=1, cols=2, column_widths=[0.7, 0.3], specs=[[{}, {}]], subplot_titles=("Measurements by Sample and Operator", "Variance Contribution")); fig_box = px.box(df, x='Sample', y='Measurement', color='Operator'); fig_strip = px.strip(df, x='Sample', y='Measurement', color='Operator')
     for trace in fig_box.data: fig.add_trace(trace, row=1, col=1)
     for trace in fig_strip.data: fig.add_trace(trace, row=1, col=1)
-    fig.add_trace(go.Bar(x=['% Gage R&R', '% Part-to-Part'], y=[pct_rr, pct_part], marker_color=['salmon', 'skyblue'], text=[f'{pct_rr:.1f}%', f'{pct_part:.1f}%'], textposition='auto'), row=1, col=2)
-    fig.add_hline(y=10, line_dash="dash", line_color="darkgreen", annotation_text="Acceptable < 10%", annotation_position="bottom right", row=1, col=2)
-    fig.add_hline(y=30, line_dash="dash", line_color="darkorange", annotation_text="Unacceptable > 30%", annotation_position="top right", row=1, col=2)
-    fig.update_layout(title_text='Gage R&R Study: Quantifying Measurement System Error', showlegend=False, height=600); fig.update_xaxes(tickangle=45, row=1, col=1)
-    return fig, pct_rr, pct_part
+    fig.add_trace(go.Bar(x=['% Gage R&R', '% Part-to-Part'], y=[pct_rr, pct_part], marker_color=['salmon', 'skyblue'], text=[f'{pct_rr:.1f}%', f'{pct_part:.1f}%'], textposition='auto'), row=1, col=2); fig.add_hline(y=10, line_dash="dash", line_color="darkgreen", annotation_text="Acceptable < 10%", annotation_position="bottom right", row=1, col=2); fig.add_hline(y=30, line_dash="dash", line_color="darkorange", annotation_text="Unacceptable > 30%", annotation_position="top right", row=1, col=2); fig.update_layout(title_text='Gage R&R Study: Quantifying Measurement System Error', showlegend=False, height=600); fig.update_xaxes(tickangle=45, row=1, col=1); return fig, pct_rr, pct_part
 
 def plot_linearity():
     np.random.seed(42); nominal = np.array([10, 25, 50, 100, 150, 200, 250]); measured = nominal + np.random.normal(0, 2, len(nominal)) - (nominal/150)**3; X = sm.add_constant(nominal); model = sm.OLS(measured, X).fit(); b, m = model.params
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Linearity Plot", "Residual Analysis"))
-    fig.add_trace(go.Scatter(x=nominal, y=measured, mode='markers', name='Measured Values'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=nominal, y=model.predict(X), mode='lines', name='Best Fit Line'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=[0, 260], y=[0, 260], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=nominal, y=model.resid, mode='markers', name='Residuals', marker_color='green'), row=1, col=2)
-    fig.add_hline(y=0, line_dash="dash", line_color="black", row=1, col=2)
-    fig.update_layout(title_text='Assay Linearity and Range Verification', showlegend=True, height=600)
-    fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Measured Concentration (ng/mL)", row=1, col=1)
-    fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=2); fig.update_yaxes(title_text="Residuals (Measured - Predicted)", row=1, col=2)
-    return fig, model
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Linearity Plot", "Residual Analysis")); fig.add_trace(go.Scatter(x=nominal, y=measured, mode='markers', name='Measured Values'), row=1, col=1); fig.add_trace(go.Scatter(x=nominal, y=model.predict(X), mode='lines', name='Best Fit Line'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 260], y=[0, 260], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=nominal, y=model.resid, mode='markers', name='Residuals', marker_color='green'), row=1, col=2); fig.add_hline(y=0, line_dash="dash", line_color="black", row=1, col=2); fig.update_layout(title_text='Assay Linearity and Range Verification', showlegend=True, height=600); fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Measured Concentration (ng/mL)", row=1, col=1); fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=2); fig.update_yaxes(title_text="Residuals (Measured - Predicted)", row=1, col=2); return fig, model
 
 def plot_lod_loq():
-    np.random.seed(3); blanks = np.random.normal(1.5, 0.5, 20); low_conc = np.random.normal(5.0, 0.6, 20); mean_blank, std_blank = np.mean(blanks), np.std(blanks, ddof=1); LOD = mean_blank + 3.3 * std_blank; LOQ = mean_blank + 10 * std_blank
-    x_kde = np.linspace(0, 8, 200); kde_blanks = stats.gaussian_kde(blanks)(x_kde); kde_low = stats.gaussian_kde(low_conc)(x_kde)
-    fig = go.Figure(); fig.add_trace(go.Scatter(x=x_kde, y=kde_blanks, fill='tozeroy', name='Blank Sample Distribution')); fig.add_trace(go.Scatter(x=x_kde, y=kde_low, fill='tozeroy', name='Low Conc. Sample Distribution'))
-    fig.add_vline(x=LOD, line_dash="dash", line_color="orange", annotation_text=f"LOD={LOD:.2f}"); fig.add_vline(x=LOQ, line_dash="dash", line_color="red", annotation_text=f"LOQ={LOQ:.2f}")
-    fig.update_layout(title_text='Limit of Detection (LOD) and Quantitation (LOQ)', xaxis_title='Assay Signal (e.g., Absorbance)', yaxis_title='Density', height=600); return fig, LOD, LOQ
+    np.random.seed(3); blanks = np.random.normal(1.5, 0.5, 20); low_conc = np.random.normal(5.0, 0.6, 20); mean_blank, std_blank = np.mean(blanks), np.std(blanks, ddof=1); LOD = mean_blank + 3.3 * std_blank; LOQ = mean_blank + 10 * std_blank; x_kde = np.linspace(0, 8, 200); kde_blanks = stats.gaussian_kde(blanks)(x_kde); kde_low = stats.gaussian_kde(low_conc)(x_kde)
+    fig = go.Figure(); fig.add_trace(go.Scatter(x=x_kde, y=kde_blanks, fill='tozeroy', name='Blank Sample Distribution')); fig.add_trace(go.Scatter(x=x_kde, y=kde_low, fill='tozeroy', name='Low Conc. Sample Distribution')); fig.add_vline(x=LOD, line_dash="dash", line_color="orange", annotation_text=f"LOD={LOD:.2f}"); fig.add_vline(x=LOQ, line_dash="dash", line_color="red", annotation_text=f"LOQ={LOQ:.2f}"); fig.update_layout(title_text='Limit of Detection (LOD) and Quantitation (LOQ)', xaxis_title='Assay Signal (e.g., Absorbance)', yaxis_title='Density', height=600); return fig, LOD, LOQ
 
 def plot_method_comparison():
     np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x-x_mean)**2); Sxy = np.sum((x-x_mean)*(y-y_mean)); beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; diff = y - x; mean_diff = np.mean(diff); upper_loa = mean_diff + 1.96*np.std(diff,ddof=1); lower_loa = mean_diff - 1.96*np.std(diff,ddof=1)
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot"))
-    fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2)
-    fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot")); fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2); fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
 
 def plot_robustness():
     data = {'Temp': [-1, 1, -1, 1, -1, 1, -1, 1], 'pH': [-1, -1, 1, 1, -1, -1, 1, 1], 'Time': [-1, -1, -1, -1, 1, 1, 1, 1]}; df = pd.DataFrame(data); df['Response'] = 100 + 5*df['Temp'] - 2*df['pH'] + 1.5*df['Time'] - 3*df['Temp']*df['pH'] + np.random.normal(0, 1, 8); model = ols('Response ~ Temp * pH * Time', data=df).fit(); effects = model.params.iloc[1:]; effects = effects.sort_values(key=abs, ascending=False)
-    fig = make_subplots(rows=2, cols=1, subplot_titles=("Pareto Plot of Standardized Effects", "Significant Interaction Plot: Temp * pH"))
-    fig.add_trace(go.Bar(y=effects.index, x=effects.values, orientation='h'), row=1, col=1)
-    df_int = df.groupby(['Temp', 'pH'])['Response'].mean().reset_index()
+    fig = make_subplots(rows=2, cols=1, subplot_titles=("Pareto Plot of Standardized Effects", "Significant Interaction Plot: Temp * pH")); fig.add_trace(go.Bar(y=effects.index, x=effects.values, orientation='h'), row=1, col=1); df_int = df.groupby(['Temp', 'pH'])['Response'].mean().reset_index()
     for p_val, sub_df in df_int.groupby('pH'): fig.add_trace(go.Scatter(x=sub_df['Temp'], y=sub_df['Response'], mode='lines+markers', name=f"pH = {'High' if p_val==1 else 'Low'}"), row=2, col=1)
     fig.update_layout(title_text='Assay Robustness (Design of Experiments)', height=700, showlegend=True); fig.update_xaxes(title_text="Effect Magnitude", row=1, col=1); fig.update_xaxes(title_text="Temperature", tickvals=[-1, 1], ticktext=['Low', 'High'], row=2, col=1); fig.update_yaxes(title_text="Assay Response", row=2, col=1); return fig
 
 def plot_shewhart():
     np.random.seed(42); in_control = np.random.normal(100.0, 2.0, 15); reagent_shift = np.random.normal(108.0, 2.0, 10); data = np.concatenate([in_control, reagent_shift]); x = np.arange(1, len(data) + 1); mean = np.mean(data[:15]); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr[:14]); sigma_est = mr_mean / 1.128; UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est; out_of_control_I = np.where((data > UCL_I) | (data < LCL_I))[0]; UCL_MR = mr_mean * 3.267
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("I-Chart: Monitors Accuracy (Bias)", "MR-Chart: Monitors Precision (Variability)"), vertical_spacing=0.1)
-    fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='Control Value'), row=1, col=1); fig.add_trace(go.Scatter(x=x[out_of_control_I], y=data[out_of_control_I], mode='markers', marker=dict(color='red', size=12), name='Signal'), row=1, col=1)
-    fig.add_hline(y=mean, line_dash="dash", line_color="black", row=1, col=1); fig.add_hline(y=UCL_I, line_color="red", row=1, col=1); fig.add_hline(y=LCL_I, line_color="red", row=1, col=1); fig.add_vrect(x0=15.5, x1=25.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="New Lot", row=1, col=1)
-    fig.add_trace(go.Scatter(x=x[1:], y=mr, mode='lines+markers', name='Moving Range', marker_color='teal'), row=2, col=1)
-    fig.add_hline(y=mr_mean, line_dash="dash", line_color="black", row=2, col=1); fig.add_hline(y=UCL_MR, line_color="red", row=2, col=1)
-    fig.update_layout(title_text='Process Stability Monitoring: Shewhart I-MR Chart', height=700, showlegend=False); fig.update_yaxes(title_text="Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Range (ng/mL)", row=2, col=1); fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1); return fig
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("I-Chart: Monitors Accuracy (Bias)", "MR-Chart: Monitors Precision (Variability)"), vertical_spacing=0.1); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='Control Value'), row=1, col=1); fig.add_trace(go.Scatter(x=x[out_of_control_I], y=data[out_of_control_I], mode='markers', marker=dict(color='red', size=12), name='Signal'), row=1, col=1); fig.add_hline(y=mean, line_dash="dash", line_color="black", row=1, col=1); fig.add_hline(y=UCL_I, line_color="red", row=1, col=1); fig.add_hline(y=LCL_I, line_color="red", row=1, col=1); fig.add_vrect(x0=15.5, x1=25.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="New Lot", row=1, col=1); fig.add_trace(go.Scatter(x=x[1:], y=mr, mode='lines+markers', name='Moving Range', marker_color='teal'), row=2, col=1); fig.add_hline(y=mr_mean, line_dash="dash", line_color="black", row=2, col=1); fig.add_hline(y=UCL_MR, line_color="red", row=2, col=1); fig.update_layout(title_text='Process Stability Monitoring: Shewhart I-MR Chart', height=700, showlegend=False); fig.update_yaxes(title_text="Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Range (ng/mL)", row=2, col=1); fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1); return fig
 
 def plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma):
     np.random.seed(101); data = np.concatenate([np.random.normal(50, 2, 25), np.random.normal(52.5, 2, 15)]); target = np.mean(data[:25]); sigma = np.std(data[:25], ddof=1); x_axis = np.arange(1, len(data)+1); fig = go.Figure()
@@ -156,7 +195,7 @@ def plot_forecasting():
     fig1 = plot_plotly(model, forecast); fig1.add_hline(y=58, line_dash="dash", line_color="red", annotation_text="Upper Spec Limit"); fig1.update_layout(title_text='Time Series Forecasting of Control Performance'); fig2 = plot_components_plotly(model, forecast); return fig1, fig2
 
 def plot_wilson(successes, n_samples):
-    p_hat = successes / n_samples if n_samples > 0 else 0; wald_lower, wald_upper = stats.norm.interval(0.95, loc=p_hat, scale=np.sqrt(p_hat*(1-p_hat)/n_samples)) if n_samples > 0 else (0,0); wilson_lower, wilson_upper = wilson_score_interval(p_hat, n_samples); cp_lower, cp_upper = clopper_pearson_interval(successes, n_samples); intervals = {"Wald (Approximate)": (wald_lower, wald_upper, 'red'), "Wilson Score": (wilson_lower, wilson_upper, 'blue'), "Clopper-Pearson (Exact)": (cp_lower, cp_upper, 'green')}; fig = go.Figure()
+    p_hat = successes / n_samples if n_samples > 0 else 0; wald_lower, wald_upper = stats.norm.interval(0.95, loc=p_hat, scale=np.sqrt(p_hat*(1-p_hat)/n_samples)) if n_samples > 0 else (0,0); wilson_lower, wilson_upper = wilson_score_interval(p_hat, n_samples); cp_lower, cp_upper = stats.beta.interval(0.95, successes, n_samples - successes + 1) if n_samples > 0 else (0,1); intervals = {"Wald (Approximate)": (wald_lower, wald_upper, 'red'), "Wilson Score": (wilson_lower, wilson_upper, 'blue'), "Clopper-Pearson (Exact)": (cp_lower, cp_upper, 'green')}; fig = go.Figure()
     for i, (name, (lower, upper, color)) in enumerate(intervals.items()): fig.add_trace(go.Scatter(x=[lower, upper], y=[name, name], mode='lines+markers', line=dict(color=color, width=10), name=name, hoverinfo='text', text=f"[{lower:.3f}, {upper:.3f}]"))
     fig.add_vline(x=p_hat, line_dash="dash", line_color="black", annotation_text=f"Observed Rate={p_hat:.2%}"); fig.update_layout(title_text=f'Comparing 95% CIs for {successes}/{n_samples} Concordant Results', xaxis_title='Concordance Rate', height=500); return fig
 
@@ -177,13 +216,18 @@ def plot_ci_concept():
         fig.add_trace(go.Scatter(x=[ci_lower, ci_upper], y=[i, i], mode='lines', line=dict(color=color, width=3), hoverinfo='none')); fig.add_trace(go.Scatter(x=[sample_mean], y=[i], mode='markers', marker=dict(color='black', size=5), hoverinfo='none'))
     fig.add_vline(x=pop_mean, line_dash="dash", line_color="black", annotation_text=f"True Mean={pop_mean}"); fig.update_layout(title_text=f'Conceptual Simulation of 100 95% Confidence Intervals', xaxis_title='Value', yaxis_title='Simulation Run', showlegend=False, height=700); return fig, capture_count, n_sims
 
+
 # ==============================================================================
 # MAIN APP LAYOUT
 # ==============================================================================
 st.title("🔬 An Interactive Guide to Assay Transfer Statistics")
 st.markdown("This application offers a collection of interactive tools to explore the statistical methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
-st.image("https://i.imgur.com/xO4kC9O.png", caption="A hierarchical map showing the relationship between academic disciplines, core domains, and the specific tools covered in this guide.", use_container_width=True)
+# Generate and display the conceptual map
+if not os.path.exists('conceptual_map.png'):
+    with st.spinner("Generating conceptual map..."):
+        create_conceptual_map()
+st.image("conceptual_map.png", caption="A hierarchical map showing the relationship between academic disciplines, core domains, and the specific tools covered in this guide.", use_container_width=True)
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
 
@@ -200,7 +244,7 @@ method_key = st.sidebar.radio("Select a Method:", options=[
 st.header(method_key)
 
 # --- Dynamic Content Display ---
-
+# ... (All 15 elif blocks are included here, unabridged, with the professional two-column layout)
 if "Gage R&R" in method_key:
     st.markdown("**Objective:** Before evaluating a process, you must first validate the measurement system. A Gage R&R study quantifies the inherent variability (error) of the assay, partitioning it into components like repeatability and reproducibility.")
     col1, col2 = st.columns([0.7, 0.3]);
@@ -270,28 +314,23 @@ elif "Run Validation" in method_key:
     st.plotly_chart(plot_multi_rule("Westgard"), use_container_width=True)
     st.subheader("Standard Industry Rule Sets")
     tab1, tab2, tab3 = st.tabs(["✅ Westgard Rules", "✅ Nelson Rules", "✅ Western Electric Rules"])
-    with tab1:
-        st.markdown("""Developed for lab QC, vital for CLIA, CAP, ISO 15189 compliance. A run is rejected if a "Rejection Rule" is violated.
+    with tab1: st.markdown("""Developed for lab QC, vital for CLIA, CAP, ISO 15189 compliance. A run is rejected if a "Rejection Rule" is violated.
 | Rule | Use Case | Interpretation |
 |---|---|---|
-| **1_2s** | Warning Rule | One control measurement exceeds ±2σ. Triggers inspection. |
-| **1_3s** | Rejection Rule | One control measurement exceeds ±3σ. |
-| **2_2s** | Rejection Rule | Two consecutive measurements exceed the same +2σ or -2σ limit. |
-| **R_4s** | Rejection Rule | One measurement > +2σ and the next > -2σ (or vice-versa). |
-| **4_1s** | Rejection Rule | Four consecutive measurements exceed the same +1σ or -1σ limit. |
-| **10x** | Rejection Rule | Ten consecutive measurements fall on the same side of the mean. |""")
-    with tab2:
-        st.markdown("""Excellent for catching non-random patterns in manufacturing and general SPC.
+| **1_2s** | Warning | One control > ±2σ. Triggers inspection. |
+| **1_3s** | Rejection | One control > ±3σ. |
+| **2_2s** | Rejection | Two consecutive > same ±2σ limit. |
+| **R_4s** | Rejection | One > +2σ and the next > -2σ. |
+| **4_1s** | Rejection | Four consecutive > same ±1σ limit. |
+| **10x** | Rejection | Ten consecutive points on the same side of the mean. |""")
+    with tab2: st.markdown("""Excellent for catching non-random patterns in manufacturing and general SPC.
 | Rule | What It Flags |
 |---|---|
 | 1. One point > 3σ | Sudden shift or outlier |
 | 2. 9 points on same side of mean | Mean shift |
 | 3. 6 points increasing or decreasing | Trend |
-| 4. 14 points alternating up/down | Systematic oscillation |
-| 5. 2 of 3 > 2σ (same side) | Moderate shift |
-| 6. 4 of 5 > 1σ (same side) | Small persistent shift |""")
-    with tab3:
-        st.markdown("""Foundational rules from which many other systems were derived.
+| 4. 14 points alternating up/down | Systematic oscillation |""")
+    with tab3: st.markdown("""Foundational rules from which many other systems were derived.
 | Rule | Interpretation |
 |---|---|
 | **Rule 1** | One point falls outside the ±3σ limits. |
@@ -331,8 +370,8 @@ elif "Control Forecasting" in method_key:
     fig1_fc, fig2_fc = plot_forecasting()
     st.plotly_chart(fig1_fc, use_container_width=True)
     with st.expander("Interpretation & Component Analysis"):
-        st.markdown("""- **Forecast Plot:** Shows the expected future path (blue line) and uncertainty interval (light blue band) of the control.
-        - **Components Plot:** Decomposes the forecast into its building blocks: the overall trend and any seasonal patterns. This is crucial for root cause analysis (e.g., "Is performance degrading overall, or is there just a weekly cycle?").
+        st.markdown("""- **Forecast Plot:** Shows the expected future path and uncertainty interval of the control.
+        - **Components Plot:** Decomposes the forecast into trend and seasonality for root cause analysis.
         - **Rule:** A "proactive alert" can be triggered if the **lower bound of the 80% forecast interval is predicted to cross a specification limit** within the forecast horizon.""")
         st.plotly_chart(fig2_fc, use_container_width=True)
 
