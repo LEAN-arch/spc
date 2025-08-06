@@ -33,6 +33,76 @@ st.markdown("""
 # ==============================================================================
 # All plotting and helper functions are defined here.
 
+def plot_v_model():
+    """Generates an interactive V&V Model diagram using Plotly, applicable to multiple tech transfer types."""
+    fig = go.Figure()
+
+    # Define the nodes, their positions, and detailed, universally applicable information
+    v_model_stages = {
+        'URS': {'name': 'User Requirements', 'x': 0, 'y': 5, 'question': 'What does the business/patient/process need?', 'tools': 'Business Case, User Needs Document'},
+        'FS': {'name': 'Functional Specs', 'x': 1, 'y': 4, 'question': 'What must the system *do*?', 'tools': 'Assay: Linearity, LOD/LOQ. Instrument: Throughput. Software: User Roles.'},
+        'DS': {'name': 'Design Specs', 'x': 2, 'y': 3, 'question': 'How will the system be built/configured?', 'tools': 'Assay: Robustness (DOE). Instrument: Component selection. Software: Architecture.'},
+        'BUILD': {'name': 'Implementation', 'x': 3, 'y': 2, 'question': 'Build, code, configure, write SOPs, train.', 'tools': 'N/A (Physical/Code Transfer)'},
+        'IQOQ': {'name': 'Installation/Operational Qualification (IQ/OQ)', 'x': 4, 'y': 3, 'question': 'Is the system installed correctly and does it operate as designed?', 'tools': 'Instrument Calibration, Software Unit/Integration Tests.'},
+        'PQ': {'name': 'Performance Qualification (PQ)', 'x': 5, 'y': 4, 'question': 'Does the functioning system perform reliably in its environment?', 'tools': 'Gage R&R, Method Comp, Stability, Process Capability (Cpk).'},
+        'UAT': {'name': 'User Acceptance / Validation', 'x': 6, 'y': 5, 'question': 'Does the validated system meet the original user need?', 'tools': 'Pass/Fail Analysis, Bayesian Confirmation, Final Report.'}
+    }
+    
+    # Define colors
+    verification_color = 'rgba(0, 128, 128, 0.8)'  # Teal
+    validation_color = 'rgba(0, 191, 255, 0.8)'  # Deep Sky Blue
+    
+    # Create the 'V' shape with a bold line
+    path_keys = ['URS', 'FS', 'DS', 'BUILD', 'IQOQ', 'PQ', 'UAT']
+    path_x = [v_model_stages[p]['x'] for p in path_keys]
+    path_y = [v_model_stages[p]['y'] for p in path_keys]
+    fig.add_trace(go.Scatter(
+        x=path_x, y=path_y, mode='lines',
+        line=dict(color='darkgrey', width=3),
+        hoverinfo='none'
+    ))
+
+    # Add nodes and annotations
+    for i, (key, stage) in enumerate(v_model_stages.items()):
+        color = verification_color if i < 3 else validation_color if i > 3 else 'grey'
+        fig.add_trace(go.Scatter(
+            x=[stage['x']], y=[stage['y']],
+            mode='markers',
+            marker=dict(color=color, size=65, line=dict(width=2, color='black')),
+            hoverinfo='text',
+            text=f"<b>{stage['name']}</b><br><br><i>{stage['question']}</i><br><b>Examples / Tools:</b> {stage['tools']}"
+        ))
+        fig.add_annotation(
+            x=stage['x'], y=stage['y'],
+            text=f"<b>{stage['name']}</b>",
+            showarrow=False,
+            font=dict(color='white', size=10)
+        )
+    
+    # Add horizontal verification/validation lines
+    for i in range(3):
+        start_key = path_keys[i]
+        end_key = path_keys[-(i+1)]
+        fig.add_shape(
+            type="line",
+            x0=v_model_stages[start_key]['x'], y0=v_model_stages[start_key]['y'],
+            x1=v_model_stages[end_key]['x'], y1=v_model_stages[end_key]['y'],
+            line=dict(color="rgba(0,0,0,0.4)", width=2, dash="dot")
+        )
+
+    fig.update_layout(
+        title_text='<b>The V&V Model for Technology Transfer (Hover for Details)</b>',
+        showlegend=False,
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.5, 6.5]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[1.5, 5.7]),
+        height=600,
+        margin=dict(l=20, r=20, t=50, b=20),
+        plot_bgcolor='#FFFFFF',
+        paper_bgcolor='#f0f2f6'
+    )
+    
+    return fig, v_model_stages
+
 @st.cache_data
 def create_conceptual_map_plotly():
     nodes = { 'DS': ('Data Science', 0, 3.5), 'BS': ('Biostatistics', 0, 2.5), 'ST': ('Statistics', 0, 1.5), 'IE': ('Industrial Engineering', 0, 0.5), 'SI': ('Statistical Inference', 1, 2.5), 'SPC': ('SPC', 1, 0.5), 'CC': ('Control Charts', 2, 0), 'PC': ('Process Capability', 2, 1), 'WR': ('Westgard Rules', 2, 2), 'NR': ('Nelson Rules', 2, 3), 'HT': ('Hypothesis Testing', 2, 4), 'CI': ('Confidence Intervals', 2, 5), 'BAY': ('Bayesian Statistics', 2, 6), 'SWH': ('Shewhart Charts', 3, -0.5), 'EWM': ('EWMA', 3, 0), 'CSM': ('CUSUM', 3, 0.5), 'MQA': ('Manufacturing QA', 3, 1.5), 'CL': ('Clinical Labs', 3, 2.5), 'TAV': ('T-tests / ANOVA', 3, 3.5), 'ZME': ('Z-score / Margin of Error', 3, 4.5), 'WS': ('Wilson Score', 3, 5.5), 'PP': ('Posterior Probabilities', 3, 6.5), 'PE': ('Proportion Estimates', 4, 6.0) }
@@ -49,6 +119,26 @@ def wilson_score_interval(p_hat, n, z=1.96):
     term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n; term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2))); return (term1 - term2) / denom, (term1 + term2) / denom
 
 # ... (All 15 plotting functions are here, fully implemented and enhanced for quality)
+st.divider()
+
+# --- V&V Model and Narrative Introduction ---
+st.header("The V&V Model: The Strategic Map for Technology Transfer")
+st.markdown("""
+The **Verification & Validation (V&V) Model**, shown below, is the universally accepted strategic framework for any technology transfer, whether it's an **assay, instrument, process, or software**. It provides the logical roadmap to ensure success and prevent costly failures late in the project.
+
+- **The Left Side (Verification - "Are we building it right?"):** This is the journey *down* into the details. We start with a high-level need and progressively break it down into testable specifications, verifying our design choices and configurations at each step. This is about building a solid foundation.
+- **The Right Side (Validation - "Did we build the right thing?"):** This is the journey *up* to prove success. We take the implemented system and test it at progressively higher levels, validating that it meets the original user and business needs in its operational environment.
+
+The tools in this toolkit are the specific statistical methods you use to generate the objective evidence required to conquer each stage of this map. **Hover over a stage in the diagram to learn more.**
+""")
+
+# --- Interactive V&V Model Dashboard ---
+fig_v_model, v_model_stages = plot_v_model()
+st.plotly_chart(fig_v_model, use_container_width=True)
+
+st.divider()
+
+
 def plot_gage_rr():
     # --- Data Generation ---
     np.random.seed(10)
