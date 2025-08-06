@@ -131,8 +131,76 @@ def plot_gage_rr():
     return fig, pct_rr, pct_part
 
 def plot_linearity():
-    np.random.seed(42); nominal = np.array([10, 25, 50, 100, 150, 200, 250]); measured = nominal + np.random.normal(0, 2, len(nominal)) - (nominal/150)**3; X = sm.add_constant(nominal); model = sm.OLS(measured, X).fit(); b, m = model.params
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Linearity Plot", "Residual Analysis")); fig.add_trace(go.Scatter(x=nominal, y=measured, mode='markers', name='Measured Values'), row=1, col=1); fig.add_trace(go.Scatter(x=nominal, y=model.predict(X), mode='lines', name='Best Fit Line'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 260], y=[0, 260], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=nominal, y=model.resid, mode='markers', name='Residuals', marker_color='green'), row=1, col=2); fig.add_hline(y=0, line_dash="dash", line_color="black", row=1, col=2); fig.update_layout(title_text='Assay Linearity and Range Verification', showlegend=True, height=600); fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Measured Concentration (ng/mL)", row=1, col=1); fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=2); fig.update_yaxes(title_text="Residuals (Measured - Predicted)", row=1, col=2); return fig, model
+    # --- Data Generation ---
+    np.random.seed(42)
+    nominal = np.array([10, 25, 50, 100, 150, 200, 250])
+    # Introduce slight non-linearity and error
+    measured = nominal + np.random.normal(0, nominal * 0.02 + 1) - (nominal / 150)**3
+    
+    # --- Calculations ---
+    X = sm.add_constant(nominal)
+    model = sm.OLS(measured, X).fit()
+    b, m = model.params
+    residuals = model.resid
+    recovery = (measured / nominal) * 100
+    
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=2, cols=2,
+        specs=[[{}, {}], [{"colspan": 2}, None]],
+        subplot_titles=("<b>Linearity Plot</b>", "<b>Residual Plot</b>", "<b>Recovery Plot</b>"),
+        vertical_spacing=0.2
+    )
+
+    # --- Plot 1: Linearity Plot ---
+    fig.add_trace(go.Scatter(
+        x=nominal, y=measured, mode='markers', name='Measured Values',
+        marker=dict(size=10, color='blue'),
+        hovertemplate="Nominal: %{x}<br>Measured: %{y:.2f}<extra></extra>"
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=nominal, y=model.predict(X), mode='lines', name='Best Fit Line',
+        line=dict(color='red')
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=[0, 260], y=[0, 260], mode='lines', name='Line of Identity',
+        line=dict(dash='dash', color='black')
+    ), row=1, col=1)
+
+    # --- Plot 2: Residual Plot ---
+    fig.add_trace(go.Scatter(
+        x=nominal, y=residuals, mode='markers', name='Residuals',
+        marker=dict(size=10, color='green'),
+        hovertemplate="Nominal: %{x}<br>Residual: %{y:.2f}<extra></extra>"
+    ), row=1, col=2)
+    fig.add_hline(y=0, line_dash="dash", line_color="black", row=1, col=2)
+
+    # --- Plot 3: Recovery Plot ---
+    fig.add_trace(go.Scatter(
+        x=nominal, y=recovery, mode='lines+markers', name='Recovery',
+        line=dict(color='purple'), marker=dict(size=10),
+        hovertemplate="Nominal: %{x}<br>Recovery: %{y:.1f}%<extra></extra>"
+    ), row=2, col=1)
+    # Add acceptance limits for recovery
+    fig.add_hrect(y0=80, y1=120, fillcolor="green", opacity=0.1, layer="below", line_width=0, row=2, col=1)
+    fig.add_hline(y=100, line_dash="dash", line_color="black", row=2, col=1)
+    fig.add_hline(y=80, line_dash="dot", line_color="red", row=2, col=1)
+    fig.add_hline(y=120, line_dash="dot", line_color="red", row=2, col=1)
+
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>Assay Linearity and Range Verification Dashboard</b>',
+        height=800,
+        showlegend=False
+    )
+    fig.update_xaxes(title_text="Nominal Concentration", row=1, col=1)
+    fig.update_yaxes(title_text="Measured Concentration", row=1, col=1)
+    fig.update_xaxes(title_text="Nominal Concentration", row=1, col=2)
+    fig.update_yaxes(title_text="Residual (Error)", row=1, col=2)
+    fig.update_xaxes(title_text="Nominal Concentration", row=2, col=1)
+    fig.update_yaxes(title_text="% Recovery", range=[min(75, recovery.min()-5), max(125, recovery.max()+5)], row=2, col=1)
+    
+    return fig, model
 
 def plot_lod_loq():
     np.random.seed(3); blanks = np.random.normal(1.5, 0.5, 20); low_conc = np.random.normal(5.0, 0.6, 20); mean_blank, std_blank = np.mean(blanks), np.std(blanks, ddof=1); LOD = mean_blank + 3.3 * std_blank; LOQ = mean_blank + 10 * std_blank; x_kde = np.linspace(0, 8, 200); kde_blanks = stats.gaussian_kde(blanks)(x_kde); kde_low = stats.gaussian_kde(low_conc)(x_kde)
@@ -523,21 +591,39 @@ if "Gage R&R" in method_key:
             st.latex(r"\%R\&R = 100 \times \left( \frac{\hat{\sigma}_{R\&R}}{\hat{\sigma}_{Total}} \right)")
 
 elif "Linearity and Range" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To verify the assay's ability to provide results that are directly proportional to the analyte concentration across a specified range. **Application:** This study establishes the validated 'reportable range' of the assay.")
+    st.markdown("""
+    **Purpose:** To verify the assay's ability to provide results that are directly proportional to the concentration of the analyte across a specified range.
+    
+    **Definition:** Linearity is the measure of how well a calibration plot of response versus concentration approximates a straight line. The Range is the interval between the upper and lower concentration of an analyte in a sample for which the assay has been demonstrated to have a suitable level of precision, accuracy, and linearity.
+    
+    **Application:** This study is a fundamental part of assay validation. Our Hero must prove that their weapon—the assay—is not just precise, but also consistently accurate across the entire range of interest. A non-linear assay is like a warped ruler; it may be right in the middle, but it gives dangerously misleading results at the extremes.
+    """)
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: fig, model = plot_linearity(); st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig, model = plot_linearity()
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: R-squared (R²)", value=f"{model.rsquared:.4f}"); st.metric(label="💡 Metric: Slope", value=f"{model.params[1]:.3f}"); st.metric(label="💡 Metric: Y-Intercept", value=f"{model.params[0]:.2f}")
-            st.markdown("- **Residual Plot:** The random scatter of points confirms the linear model is appropriate.")
-            st.markdown("**The Bottom Line:** A high R², a slope near 1, and an intercept near 0 provide statistical proof that your assay behaves like a well-calibrated instrument across its intended range.")
+            st.metric(label="📈 KPI: R-squared (R²)", value=f"{model.rsquared:.4f}")
+            st.metric(label="💡 Metric: Slope", value=f"{model.params[1]:.3f}")
+            st.metric(label="💡 Metric: Y-Intercept", value=f"{model.params[0]:.2f}")
+            st.markdown("- **Linearity Plot:** Visually confirms the straight-line relationship.")
+            st.markdown("- **Residual Plot:** The most powerful diagnostic tool. A random scatter confirms linearity; a curve or funnel shape reveals a problem.")
+            st.markdown("- **Recovery Plot:** Directly assesses accuracy at each level. Points falling outside the 80-120% limits indicate a bias at those concentrations.")
+            st.markdown("**The Bottom Line:** A high R², a slope near 1, an intercept near 0, random residuals, and recovery within limits provide statistical proof that your assay is trustworthy across its entire reportable range.")
         with tab2:
-            st.markdown("- **R² > 0.995** is typically required."); st.markdown("- **Slope** should be close to 1.0 (e.g., within **0.95 - 1.05**)."); st.markdown("- The **95% CI for the Intercept** should contain **0**.")
+            st.markdown("- **R² > 0.995** is typically required.")
+            st.markdown("- **Slope** should be close to 1.0 (e.g., within **0.95 - 1.05**).")
+            st.markdown("- The **95% CI for the Intercept** should contain **0**.")
+            st.markdown("- **Recovery** at each level should be within a pre-defined range (e.g., **80% to 120%**).")
         with tab3:
-            st.markdown("**Origin:** Based on Ordinary Least Squares (OLS) regression (Legendre & Gauss, early 1800s)."); st.markdown("**Mathematical Basis:** We fit the model and test the hypotheses $H_0: \\beta_1 = 1$ and $H_0: \\beta_0 = 0$."); st.latex("y = \\beta_0 + \\beta_1 x + \\epsilon")
+            st.markdown("**Origin:** Based on Ordinary Least Squares (OLS) regression, a fundamental statistical method developed by Legendre and Gauss in the early 1800s.")
+            st.markdown("**Mathematical Basis:** We fit the model and test the hypotheses $H_0: \\beta_1 = 1$ and $H_0: \\beta_0 = 0$.")
+            st.latex("y = \\beta_0 + \\beta_1 x + \\epsilon")
+            st.markdown("**Recovery:**")
+            st.latex(r"\%\,Recovery = \frac{\text{Measured Concentration}}{\text{Nominal Concentration}} \times 100")
 
 elif "LOD & LOQ" in method_key:
     # ... (Content for this method)
