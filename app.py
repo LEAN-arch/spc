@@ -203,9 +203,77 @@ def plot_linearity():
     return fig, model
 
 def plot_lod_loq():
-    np.random.seed(3); blanks = np.random.normal(1.5, 0.5, 20); low_conc = np.random.normal(5.0, 0.6, 20); mean_blank, std_blank = np.mean(blanks), np.std(blanks, ddof=1); LOD = mean_blank + 3.3 * std_blank; LOQ = mean_blank + 10 * std_blank; x_kde = np.linspace(0, 8, 200); kde_blanks = stats.gaussian_kde(blanks)(x_kde); kde_low = stats.gaussian_kde(low_conc)(x_kde)
-    fig = go.Figure(); fig.add_trace(go.Scatter(x=x_kde, y=kde_blanks, fill='tozeroy', name='Blank Sample Distribution')); fig.add_trace(go.Scatter(x=x_kde, y=kde_low, fill='tozeroy', name='Low Conc. Sample Distribution')); fig.add_vline(x=LOD, line_dash="dash", line_color="orange", annotation_text=f"LOD={LOD:.2f}"); fig.add_vline(x=LOQ, line_dash="dash", line_color="red", annotation_text=f"LOQ={LOQ:.2f}"); fig.update_layout(title_text='Limit of Detection (LOD) and Quantitation (LOQ)', xaxis_title='Assay Signal (e.g., Absorbance)', yaxis_title='Density', height=600); return fig, LOD, LOQ
+    # --- Data Generation ---
+    np.random.seed(3)
+    # Data for the distribution plot
+    blanks_dist = np.random.normal(0.05, 0.01, 20)
+    low_conc_dist = np.random.normal(0.20, 0.02, 20)
+    df_dist = pd.concat([
+        pd.DataFrame({'Signal': blanks_dist, 'Sample Type': 'Blank'}),
+        pd.DataFrame({'Signal': low_conc_dist, 'Sample Type': 'Low Concentration'})
+    ])
+    
+    # Data for the calibration curve method
+    concentrations = np.array([0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 5, 5, 5, 10, 10, 10])
+    signals = 0.05 + 0.02 * concentrations + np.random.normal(0, 0.01, len(concentrations))
+    df_cal = pd.DataFrame({'Concentration': concentrations, 'Signal': signals})
+    
+    # --- Calculations (Calibration Curve Method) ---
+    X = sm.add_constant(df_cal['Concentration'])
+    model = sm.OLS(df_cal['Signal'], X).fit()
+    slope = model.params['Concentration']
+    residual_std_err = np.sqrt(model.mse_resid)
+    
+    LOD = (3.3 * residual_std_err) / slope
+    LOQ = (10 * residual_std_err) / slope
+    
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=("<b>Signal Distribution at Low End</b>", "<b>Low-Level Calibration Curve</b>"),
+        vertical_spacing=0.2
+    )
+    
+    # --- Plot 1: Signal Distribution ---
+    fig_violin = px.violin(
+        df_dist, x='Sample Type', y='Signal', color='Sample Type',
+        box=True, points="all",
+        color_discrete_map={'Blank': 'skyblue', 'Low Concentration': 'lightgreen'}
+    )
+    for trace in fig_violin.data:
+        fig.add_trace(trace, row=1, col=1)
 
+    # --- Plot 2: Low-Level Calibration Curve ---
+    fig.add_trace(go.Scatter(
+        x=df_cal['Concentration'], y=df_cal['Signal'], mode='markers',
+        name='Calibration Points', marker=dict(color='darkblue', size=8)
+    ), row=2, col=1)
+    
+    x_range = np.linspace(0, df_cal['Concentration'].max(), 100)
+    y_range = model.predict(sm.add_constant(x_range))
+    fig.add_trace(go.Scatter(
+        x=x_range, y=y_range, mode='lines',
+        name='Regression Line', line=dict(color='red', dash='dash')
+    ), row=2, col=1)
+
+    # Add LOD/LOQ annotations to the calibration curve
+    fig.add_vline(x=LOD, line_dash="dot", line_color="orange", row=2, col=1,
+                  annotation_text=f"<b>LOD = {LOD:.2f} ng/mL</b>", annotation_position="top")
+    fig.add_vline(x=LOQ, line_dash="dash", line_color="red", row=2, col=1,
+                  annotation_text=f"<b>LOQ = {LOQ:.2f} ng/mL</b>", annotation_position="top")
+
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>Assay Sensitivity Analysis: LOD & LOQ</b>',
+        height=800,
+        showlegend=False
+    )
+    fig.update_yaxes(title_text="Assay Signal (e.g., Absorbance)", row=1, col=1)
+    fig.update_xaxes(title_text="Sample Type", row=1, col=1)
+    fig.update_yaxes(title_text="Assay Signal (e.g., Absorbance)", row=2, col=1)
+    fig.update_xaxes(title_text="Concentration (ng/mL)", row=2, col=1)
+    
+    return fig, LOD, LOQ
 def plot_method_comparison():
     np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x-x_mean)**2); Sxy = np.sum((x-x_mean)*(y-y_mean)); beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; diff = y - x; mean_diff = np.mean(diff); upper_loa = mean_diff + 1.96*np.std(diff,ddof=1); lower_loa = mean_diff - 1.96*np.std(diff,ddof=1)
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot")); fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2); fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
@@ -626,21 +694,35 @@ elif "Linearity and Range" in method_key:
             st.latex(r"\%\,Recovery = \frac{\text{Measured Concentration}}{\text{Nominal Concentration}} \times 100")
 
 elif "LOD & LOQ" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To determine the lowest concentration at which the assay can reliably detect (LOD) and accurately quantify (LOQ) an analyte. **Application:** This defines the lower limit of the assay's useful range, critical for impurity testing or low-level biomarker detection.")
+    st.markdown("""
+    **Purpose:** To determine the lowest concentration of an analyte that the assay can reliably detect (LOD) and accurately quantify (LOQ).
+    
+    **Definition:**
+    - **Limit of Detection (LOD):** The lowest analyte concentration that produces a signal distinguishable from the background noise of the blank. It answers the question, "Is the analyte present?"
+    - **Limit of Quantitation (LOQ):** The lowest analyte concentration that can be measured with an acceptable level of precision and accuracy. This is the official lower boundary of the assay's reportable range.
+    
+    **Application:** This is a critical part of assay characterization. Our Hero must know the limits of their senses. This analysis defines the absolute floor of your assay's capability, proving you can trust measurements down to the LOQ and detect presence down to the LOD. This is vital for applications like impurity testing or low-level biomarker detection.
+    """)
     col1, col2 = st.columns([0.65, 0.35]);
-    with col1: fig, lod_val, loq_val = plot_lod_loq(); st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig, lod_val, loq_val = plot_lod_loq()
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Limit of Quantitation (LOQ)", value=f"{loq_val:.2f} units"); st.metric(label="💡 Metric: Limit of Detection (LOD)", value=f"{lod_val:.2f} units")
-            st.markdown("- **LOD:** Answers 'Is the analyte present?'"); st.markdown("- **LOQ:** The lowest point in the reportable range.")
+            st.metric(label="📈 KPI: Limit of Quantitation (LOQ)", value=f"{loq_val:.2f} ng/mL")
+            st.metric(label="💡 Metric: Limit of Detection (LOD)", value=f"{lod_val:.2f} ng/mL")
+            st.markdown("- **Signal Distribution:** The violin plot (top) visually confirms that the distribution of the low-concentration samples is clearly separated from the distribution of the blank samples.")
+            st.markdown("- **Calibration Curve (Low End):** The regression plot (bottom) confirms the assay is linear at the low end of the range. The LOD and LOQ are derived from the variability of the residuals (residual standard error) and the slope of this line.")
             st.markdown("**The Bottom Line:** This analysis defines the absolute floor of your assay's capability. It proves you can trust measurements down to the LOQ, and detect presence down to the LOD.")
         with tab2:
-            st.markdown("- The **LOQ must be ≤ the lowest required concentration** for the assay's intended use.")
+            st.markdown("- The primary acceptance criterion is that the experimentally determined **LOQ must be less than or equal to the lowest concentration that needs to be measured** for the assay's intended use (e.g., the specification limit for an impurity).")
         with tab3:
-            st.markdown("**Origin:** Based on International Council for Harmonisation (ICH) Q2(R1) guidelines."); st.markdown("**Mathematical Basis:** Uses the standard deviation of blank samples ($\sigma_{blank}$)."); st.latex("LOD = \\bar{y}_{blank} + 3.3 \\sigma_{blank}"); st.latex("LOQ = \\bar{y}_{blank} + 10 \\sigma_{blank}")
+            st.markdown("**Origin:** Based on the recommendations from the International Council for Harmonisation (ICH) Q2(R1) guidelines.")
+            st.markdown("**Mathematical Basis (Calibration Curve Method):** This is the preferred, most robust method. It uses the standard deviation of the residuals (or y-intercepts) from a low-level calibration curve ($\sigma$) and the slope of that curve (S).")
+            st.latex(r"LOD = \frac{3.3 \times \sigma}{S}")
+            st.latex(r"LOQ = \frac{10 \times \sigma}{S}")
 
 elif "Method Comparison" in method_key:
     # ... (Content for this method)
