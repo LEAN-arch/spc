@@ -1,8 +1,9 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 from scipy import stats
 from scipy.stats import beta
 import statsmodels.api as sm
@@ -11,11 +12,12 @@ from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LogisticRegression
 from sklearn.inspection import DecisionBoundaryDisplay
 from prophet import Prophet
+from prophet.plot import plot_plotly, plot_components_plotly
 
 # ==============================================================================
 # APP CONFIGURATION
 # ==============================================================================
-st.set_page_config(layout="wide", page_title="Authoritative Assay Transfer Toolkit")
+st.set_page_config(layout="wide", page_title="An Interactive Guide to Assay Transfer Statistics")
 
 st.markdown("""
 <style>
@@ -23,44 +25,29 @@ st.markdown("""
     .main .block-container { padding: 2rem 3rem; }
     .stExpander { border: 1px solid #e6e6e6; border-radius: 0.5rem; }
     h1, h2, h3 { color: #2c3e50; }
+    .results-container {
+        border: 1px solid #cccccc;
+        border-radius: 5px;
+        padding: 15px;
+        background-color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
-
-sns.set_style("whitegrid")
-plt.rcParams['figure.figsize'] = (12, 6)
-plt.rcParams['font.size'] = 11
 
 # ==============================================================================
 # HELPER FUNCTIONS
 # ==============================================================================
-def cohen_d(x, y):
-    """Calculate Cohen's d for independent samples"""
-    nx, ny = len(x), len(y)
-    dof = nx + ny - 2
-    return (np.mean(x) - np.mean(y)) / np.sqrt(((nx-1)*np.std(x, ddof=1)**2 + (ny-1)*np.std(y, ddof=1)**2) / dof)
-
-def clopper_pearson_interval(successes, n, alpha=0.05):
-    """Calculate the Clopper-Pearson exact interval."""
-    if n == 0: return (0, 1)
-    lower = stats.beta.ppf(alpha/2, successes, n - successes + 1)
-    upper = stats.beta.ppf(1 - alpha/2, successes + 1, n - successes)
-    return (lower if not np.isnan(lower) else 0, upper if not np.isnan(upper) else 1)
-
 def wilson_score_interval(p_hat, n, z=1.96):
-    """Calculates the Wilson score interval for a binomial proportion."""
     if n == 0: return (0, 1)
     term1 = (p_hat + z**2 / (2 * n)); denom = 1 + z**2 / n
     term2 = z * np.sqrt((p_hat * (1-p_hat)/n) + (z**2 / (4 * n**2)))
     return (term1 - term2) / denom, (term1 + term2) / denom
 
 # ==============================================================================
-# PLOTTING FUNCTIONS (All 15 Methods)
+# PLOTTING FUNCTIONS (All 15 Methods, using Plotly)
 # ==============================================================================
-# All plotting functions are defined here.
 
 def plot_gage_rr():
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7), gridspec_kw={'width_ratios': [3, 1]})
-    fig.suptitle('Gage R&R Study: Quantifying Measurement System Error', fontweight='bold', fontsize=16)
     np.random.seed(10); n_operators, n_samples, n_replicates = 3, 10, 3
     sample_means = np.linspace(90, 110, n_samples); operator_bias = [0, -0.5, 0.8]; data = []
     for op_idx, operator in enumerate(['Alice', 'Bob', 'Charlie']):
@@ -68,390 +55,312 @@ def plot_gage_rr():
             measurements = np.random.normal(sample_mean + operator_bias[op_idx], 1.5, n_replicates)
             for m in measurements: data.append([operator, f'Sample_{sample_idx+1}', m])
     df = pd.DataFrame(data, columns=['Operator', 'Sample', 'Measurement'])
-    model = ols('Measurement ~ C(Sample) + C(Operator) + C(Sample):C(Operator)', data=df).fit()
-    anova_table = sm.stats.anova_lm(model, typ=2)
-    ms_operator = anova_table['sum_sq']['C(Operator)'] / anova_table['df']['C(Operator)']
-    ms_interaction = anova_table['sum_sq']['C(Sample):C(Operator)'] / anova_table['df']['C(Sample):C(Operator)']
-    ms_error = anova_table['sum_sq']['Residual'] / anova_table['df']['Residual']
-    var_repeatability = ms_error
-    var_reproducibility = ((ms_operator - ms_interaction) / (n_samples * n_replicates)) + ((ms_interaction - ms_error) / n_replicates)
-    var_part = (anova_table['sum_sq']['C(Sample)'] / anova_table['df']['C(Sample)'] - ms_interaction) / (n_operators * n_replicates)
-    variances = {k: max(0, v) for k, v in locals().items() if 'var_' in k}
-    var_rr = variances['var_repeatability'] + variances['var_reproducibility']
-    var_total = var_rr + variances['var_part']
-    pct_rr = (var_rr / var_total) * 100 if var_total > 0 else 0
-    pct_part = (variances['var_part'] / var_total) * 100 if var_total > 0 else 0
-    sns.boxplot(x='Sample', y='Measurement', data=df, ax=ax1, color='lightgray', showfliers=False); sns.stripplot(x='Sample', y='Measurement', data=df, hue='Operator', ax=ax1, jitter=True, dodge=True, palette='viridis'); ax1.set_title('Measurements by Sample and Operator'); ax1.tick_params(axis='x', rotation=45)
-    ax2.bar(['% Gage R&R', '% Part-to-Part'], [pct_rr, pct_part], color=['salmon', 'skyblue']); ax2.set_ylabel('Percent of Total Variation'); ax2.set_title('Variance Contribution'); ax2.axhline(10, color='darkgreen', linestyle='--', label='<10% (Acceptable)'); ax2.axhline(30, color='darkorange', linestyle='--', label='>30% (Unacceptable)'); ax2.legend(); ax2.text(0, pct_rr, f'{pct_rr:.1f}%', ha='center', va='bottom', fontsize=12, weight='bold'); ax2.text(1, pct_part, f'{pct_part:.1f}%', ha='center', va='bottom', fontsize=12, weight='bold'); plt.tight_layout(rect=[0, 0, 1, 0.95]); return fig
+    model = ols('Measurement ~ C(Sample) + C(Operator) + C(Sample):C(Operator)', data=df).fit(); anova_table = sm.stats.anova_lm(model, typ=2)
+    ms_operator = anova_table['sum_sq']['C(Operator)']/anova_table['df']['C(Operator)']; ms_interaction = anova_table['sum_sq']['C(Sample):C(Operator)']/anova_table['df']['C(Sample):C(Operator)']; ms_error = anova_table['sum_sq']['Residual']/anova_table['df']['Residual']
+    var_repeatability = ms_error; var_reproducibility = ((ms_operator - ms_interaction) / (n_samples * n_replicates)) + ((ms_interaction - ms_error) / n_replicates); var_part = (anova_table['sum_sq']['C(Sample)']/anova_table['df']['C(Sample)'] - ms_interaction) / (n_operators * n_replicates)
+    variances = {k: max(0, v) for k, v in locals().items() if 'var_' in k}; var_rr = variances['var_repeatability'] + variances['var_reproducibility']; var_total = var_rr + variances['var_part']
+    pct_rr = (var_rr / var_total) * 100 if var_total > 0 else 0; pct_part = (variances['var_part'] / var_total) * 100 if var_total > 0 else 0
+    fig = make_subplots(rows=1, cols=2, column_widths=[0.7, 0.3], specs=[[{}, {}]], subplot_titles=("Measurements by Sample and Operator", "Variance Contribution"))
+    fig_box = px.box(df, x='Sample', y='Measurement', color='Operator', points=False)
+    fig_strip = px.strip(df, x='Sample', y='Measurement', color='Operator')
+    for trace in fig_box.data: fig.add_trace(trace, row=1, col=1)
+    for trace in fig_strip.data: fig.add_trace(trace, row=1, col=1)
+    fig.add_trace(go.Bar(x=['% Gage R&R', '% Part-to-Part'], y=[pct_rr, pct_part], marker_color=['salmon', 'skyblue'], text=[f'{pct_rr:.1f}%', f'{pct_part:.1f}%'], textposition='auto'), row=1, col=2)
+    fig.add_hline(y=10, line_dash="dash", line_color="darkgreen", annotation_text="Acceptable < 10%", annotation_position="bottom right", row=1, col=2)
+    fig.add_hline(y=30, line_dash="dash", line_color="darkorange", annotation_text="Unacceptable > 30%", annotation_position="top right", row=1, col=2)
+    fig.update_layout(title_text='Gage R&R Study: Quantifying Measurement System Error', showlegend=False, height=600); fig.update_xaxes(tickangle=45, row=1, col=1)
+    return fig, pct_rr, pct_part
 
 def plot_linearity():
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7)); fig.suptitle('Assay Linearity and Range Verification', fontweight='bold', fontsize=16); np.random.seed(42); nominal = np.array([10, 25, 50, 100, 150, 200, 250]); measured = nominal + np.random.normal(0, 2, len(nominal)) - (nominal/150)**3; X = sm.add_constant(nominal); model = sm.OLS(measured, X).fit(); b, m = model.params; residuals = model.resid
-    ax1.plot(nominal, measured, 'o', label='Measured Values', markersize=8); ax1.plot(nominal, model.predict(X), 'r-', label=f'Best Fit Line (y={m:.3f}x + {b:.2f})'); ax1.plot([0, 260], [0, 260], 'k--', label='Line of Identity (y=x)'); ax1.set_xlabel('Nominal Concentration (ng/mL)'); ax1.set_ylabel('Measured Concentration (ng/mL)'); ax1.set_title('Linearity Plot'); ax1.legend(); ax1.grid(True)
-    ax2.plot(nominal, residuals, 'go'); ax2.axhline(0, color='k', linestyle='--'); ax2.set_xlabel('Nominal Concentration (ng/mL)'); ax2.set_ylabel('Residuals (Measured - Predicted)'); ax2.set_title('Residual Analysis'); ax2.grid(True); plt.tight_layout(rect=[0, 0, 1, 0.95]); return fig, model
+    np.random.seed(42); nominal = np.array([10, 25, 50, 100, 150, 200, 250]); measured = nominal + np.random.normal(0, 2, len(nominal)) - (nominal/150)**3; X = sm.add_constant(nominal); model = sm.OLS(measured, X).fit(); b, m = model.params
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Linearity Plot", "Residual Analysis"))
+    fig.add_trace(go.Scatter(x=nominal, y=measured, mode='markers', name='Measured Values'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=nominal, y=model.predict(X), mode='lines', name='Best Fit Line'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=[0, 260], y=[0, 260], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=nominal, y=model.resid, mode='markers', name='Residuals', marker_color='green'), row=1, col=2)
+    fig.add_hline(y=0, line_dash="dash", line_color="black", row=1, col=2)
+    fig.update_layout(title_text='Assay Linearity and Range Verification', showlegend=True, height=600)
+    fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Measured Concentration (ng/mL)", row=1, col=1)
+    fig.update_xaxes(title_text="Nominal Concentration (ng/mL)", row=1, col=2); fig.update_yaxes(title_text="Residuals (Measured - Predicted)", row=1, col=2)
+    return fig, model
 
 def plot_lod_loq():
-    fig, ax = plt.subplots(); np.random.seed(3); blanks = np.random.normal(1.5, 0.5, 20); low_conc = np.random.normal(5.0, 0.6, 20); mean_blank, std_blank = np.mean(blanks), np.std(blanks, ddof=1); LOD = mean_blank + 3.3 * std_blank; LOQ = mean_blank + 10 * std_blank
-    sns.kdeplot(blanks, ax=ax, fill=True, label='Blank Sample Distribution'); sns.kdeplot(low_conc, ax=ax, fill=True, label='Low Concentration Sample Distribution'); ax.axvline(LOD, color='orange', linestyle='--', lw=2, label=f'LOD = {LOD:.2f}'); ax.axvline(LOQ, color='red', linestyle='--', lw=2, label=f'LOQ = {LOQ:.2f}'); ax.set_title('Limit of Detection (LOD) and Quantitation (LOQ)', fontweight='bold'); ax.set_xlabel('Assay Signal (e.g., Absorbance)'); ax.set_ylabel('Density'); ax.legend(); return fig
+    np.random.seed(3); blanks = np.random.normal(1.5, 0.5, 20); low_conc = np.random.normal(5.0, 0.6, 20); mean_blank, std_blank = np.mean(blanks), np.std(blanks, ddof=1); LOD = mean_blank + 3.3 * std_blank; LOQ = mean_blank + 10 * std_blank
+    x_kde = np.linspace(0, 8, 200); kde_blanks = stats.gaussian_kde(blanks)(x_kde); kde_low = stats.gaussian_kde(low_conc)(x_kde)
+    fig = go.Figure(); fig.add_trace(go.Scatter(x=x_kde, y=kde_blanks, fill='tozeroy', name='Blank Sample Distribution')); fig.add_trace(go.Scatter(x=x_kde, y=kde_low, fill='tozeroy', name='Low Conc. Sample Distribution'))
+    fig.add_vline(x=LOD, line_dash="dash", line_color="orange", annotation_text=f"LOD={LOD:.2f}"); fig.add_vline(x=LOQ, line_dash="dash", line_color="red", annotation_text=f"LOQ={LOQ:.2f}")
+    fig.update_layout(title_text='Limit of Detection (LOD) and Quantitation (LOQ)', xaxis_title='Assay Signal (e.g., Absorbance)', yaxis_title='Density', height=600); return fig, LOD, LOQ
 
 def plot_method_comparison():
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7)); fig.suptitle('Method Comparison: R&D Lab vs QC Lab', fontweight='bold', fontsize=16); np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x - x_mean)**2); Syy = np.sum((y - y_mean)**2); Sxy = np.sum((x - x_mean)*(y - y_mean)); beta1_deming = (Syy - delta*Sxx + np.sqrt((Syy - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; avg = (x + y) / 2; diff = y - x; mean_diff = np.mean(diff); std_diff = np.std(diff, ddof=1); upper_loa = mean_diff + 1.96 * std_diff; lower_loa = mean_diff - 1.96 * std_diff
-    ax1.plot(x, y, 'o', label='Sample Results'); ax1.plot(x, beta0_deming + beta1_deming*x, 'r-', label=f'Deming Fit (y={beta1_deming:.2f}x + {beta0_deming:.2f})'); ax1.plot([0, 160], [0, 160], 'k--', label='Line of Identity'); ax1.set_xlabel('R&D Lab Measurement (Reference)'); ax1.set_ylabel('QC Lab Measurement (Test)'); ax1.set_title('Deming Regression'); ax1.legend(); ax1.grid(True)
-    ax2.plot(avg, diff, 'o', color='purple'); ax2.axhline(mean_diff, color='red', linestyle='-', label=f'Mean Bias = {mean_diff:.2f}'); ax2.axhline(upper_loa, color='blue', linestyle='--', label=f'Upper LoA = {upper_loa:.2f}'); ax2.axhline(lower_loa, color='blue', linestyle='--', label=f'Lower LoA = {lower_loa:.2f}'); ax2.set_xlabel('Average of Methods'); ax2.set_ylabel('Difference (QC - R&D)'); ax2.set_title('Bland-Altman Agreement Plot'); ax2.legend(); ax2.grid(True); plt.tight_layout(rect=[0, 0, 1, 0.95]); return fig
+    np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x-x_mean)**2); Sxy = np.sum((x-x_mean)*(y-y_mean)); beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; diff = y - x; mean_diff = np.mean(diff); upper_loa = mean_diff + 1.96*np.std(diff,ddof=1); lower_loa = mean_diff - 1.96*np.std(diff,ddof=1)
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot"))
+    fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2)
+    fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
 
 def plot_robustness():
-    fig = plt.figure(figsize=(12,8)); data = {'Temp': [-1, 1, -1, 1, -1, 1, -1, 1], 'pH': [-1, -1, 1, 1, -1, -1, 1, 1], 'Time': [-1, -1, -1, -1, 1, 1, 1, 1]}; df = pd.DataFrame(data); df['Response'] = 100 + 5*df['Temp'] - 2*df['pH'] + 1.5*df['Time'] - 3*df['Temp']*df['pH'] + np.random.normal(0, 1, 8); model = ols('Response ~ Temp * pH * Time', data=df).fit(); effects = model.params.iloc[1:]; effects = effects.sort_values(key=abs, ascending=True)
-    ax1 = fig.add_subplot(2,1,1); effects.plot(kind='barh', ax=ax1); ax1.set_title('Assay Robustness: Pareto Plot of Standardized Effects', fontweight='bold'); ax1.set_xlabel('Effect Magnitude on Assay Response')
-    ax2 = fig.add_subplot(2,2,3); sns.pointplot(data=df, x='Temp', y='Response', hue='pH', ax=ax2, markers=['o', 's'], linestyles=['-', '--']); ax2.set_title('Significant Interaction: Temp * pH'); ax2.set_xticklabels(['Low Temp', 'High Temp']); plt.tight_layout(); return fig
+    data = {'Temp': [-1, 1, -1, 1, -1, 1, -1, 1], 'pH': [-1, -1, 1, 1, -1, -1, 1, 1], 'Time': [-1, -1, -1, -1, 1, 1, 1, 1]}; df = pd.DataFrame(data); df['Response'] = 100 + 5*df['Temp'] - 2*df['pH'] + 1.5*df['Time'] - 3*df['Temp']*df['pH'] + np.random.normal(0, 1, 8); model = ols('Response ~ Temp * pH * Time', data=df).fit(); effects = model.params.iloc[1:]; effects = effects.sort_values(key=abs, ascending=False)
+    fig = make_subplots(rows=2, cols=1, subplot_titles=("Pareto Plot of Standardized Effects", "Significant Interaction Plot: Temp * pH"))
+    fig.add_trace(go.Bar(y=effects.index, x=effects.values, orientation='h'), row=1, col=1)
+    df_int = df.groupby(['Temp', 'pH'])['Response'].mean().reset_index()
+    for p_val, sub_df in df_int.groupby('pH'): fig.add_trace(go.Scatter(x=sub_df['Temp'], y=sub_df['Response'], mode='lines+markers', name=f"pH = {'High' if p_val==1 else 'Low'}"), row=2, col=1)
+    fig.update_layout(title_text='Assay Robustness (Design of Experiments)', height=700, showlegend=True); fig.update_xaxes(title_text="Effect Magnitude", row=1, col=1); fig.update_xaxes(title_text="Temperature", tickvals=[-1, 1], ticktext=['Low', 'High'], row=2, col=1); fig.update_yaxes(title_text="Assay Response", row=2, col=1); return fig
 
 def plot_shewhart():
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [3, 2]}); fig.suptitle('Assay Stability Monitoring: I-MR Chart of Daily Controls', fontweight='bold', fontsize=16); np.random.seed(42); in_control = np.random.normal(100.0, 2.0, 15); reagent_shift = np.random.normal(108.0, 2.0, 10); data = np.concatenate([in_control, reagent_shift]); x = np.arange(1, len(data) + 1); mean = np.mean(data[:15]); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr[:14]); sigma_est = mr_mean / 1.128; UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est; out_of_control_I = np.where((data > UCL_I) | (data < LCL_I))[0]; UCL_MR = mr_mean * 3.267
-    ax1.plot(x, data, 'o-', c='royalblue', label='Control Sample Result'); ax1.axhline(mean, c='black', ls='--', label=f'Established Mean ({mean:.1f} ng/mL)'); ax1.axhline(UCL_I, c='red', ls='-', label=f'UCL={UCL_I:.1f}'); ax1.axhline(LCL_I, c='red', ls='-'); ax1.scatter(x[out_of_control_I], data[out_of_control_I], c='red', s=150, zorder=5, label='Mean Shift Signal'); ax1.axvspan(15.5, 25.5, color='orange', alpha=0.2, label='New Reagent Lot Introduced'); ax1.set_ylabel('Concentration (ng/mL)'); ax1.set_title('I-Chart: Monitors Assay Accuracy (Bias)'); ax1.legend(loc='upper left')
-    ax2.plot(x[1:], mr, 'o-', c='teal', label='Moving Range (Run-to-Run)'); ax2.axhline(mr_mean, c='black', ls='--', label=f'Avg. Range ({mr_mean:.1f})'); ax2.axhline(UCL_MR, c='red', ls='-', label=f'UCL={UCL_MR:.1f}'); ax2.set_ylabel('Range (ng/mL)'); ax2.set_xlabel('Analytical Run Number'); ax2.set_title('MR-Chart: Monitors Assay Precision (Variability)'); ax2.legend(loc='upper left'); plt.tight_layout(rect=[0, 0, 1, 0.95]); return fig
+    np.random.seed(42); in_control = np.random.normal(100.0, 2.0, 15); reagent_shift = np.random.normal(108.0, 2.0, 10); data = np.concatenate([in_control, reagent_shift]); x = np.arange(1, len(data) + 1); mean = np.mean(data[:15]); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr[:14]); sigma_est = mr_mean / 1.128; UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est; out_of_control_I = np.where((data > UCL_I) | (data < LCL_I))[0]; UCL_MR = mr_mean * 3.267
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("I-Chart: Monitors Accuracy (Bias)", "MR-Chart: Monitors Precision (Variability)"), vertical_spacing=0.1)
+    fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='Control Value'), row=1, col=1); fig.add_trace(go.Scatter(x=x[out_of_control_I], y=data[out_of_control_I], mode='markers', marker=dict(color='red', size=12), name='Signal'), row=1, col=1)
+    fig.add_hline(y=mean, line_dash="dash", line_color="black", row=1, col=1); fig.add_hline(y=UCL_I, line_color="red", row=1, col=1); fig.add_hline(y=LCL_I, line_color="red", row=1, col=1); fig.add_vrect(x0=15.5, x1=25.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="New Lot", row=1, col=1)
+    fig.add_trace(go.Scatter(x=x[1:], y=mr, mode='lines+markers', name='Moving Range', marker_color='teal'), row=2, col=1)
+    fig.add_hline(y=mr_mean, line_dash="dash", line_color="black", row=2, col=1); fig.add_hline(y=UCL_MR, line_color="red", row=2, col=1)
+    fig.update_layout(title_text='Process Stability Monitoring: Shewhart I-MR Chart', height=700, showlegend=False); fig.update_yaxes(title_text="Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Range (ng/mL)", row=2, col=1); fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1); return fig
 
 def plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma):
-    np.random.seed(101); data = np.concatenate([np.random.normal(50, 2, 25), np.random.normal(52.5, 2, 15)]); target = np.mean(data[:25]); sigma = np.std(data[:25], ddof=1)
+    np.random.seed(101); data = np.concatenate([np.random.normal(50, 2, 25), np.random.normal(52.5, 2, 15)]); target = np.mean(data[:25]); sigma = np.std(data[:25], ddof=1); x_axis = np.arange(1, len(data)+1); fig = go.Figure()
     if chart_type == 'EWMA':
-        fig, ax = plt.subplots(); ewma_vals = np.zeros_like(data); ewma_vals[0] = target;
+        ewma_vals = np.zeros_like(data); ewma_vals[0] = target;
         for i in range(1, len(data)): ewma_vals[i] = lmbda * data[i] + (1 - lmbda) * ewma_vals[i-1]
         L = 3; UCL = [target + L*sigma*np.sqrt((lmbda/(2-lmbda))*(1-(1-lmbda)**(2*i))) for i in range(1, len(data)+1)]; out_idx = np.where(ewma_vals > UCL)[0]
-        ax.plot(data, 'o-', c='gray', alpha=0.4, label='Daily Control Value', markersize=4); ax.plot(ewma_vals, 'o-', c='purple', label=f'EWMA (λ={lmbda})'); ax.plot(UCL, c='red', ls='-', label='EWMA UCL'); ax.set_ylabel('Assay Response (e.g., EU/mL)')
-        if len(out_idx) > 0: ax.scatter(out_idx[0], ewma_vals[out_idx[0]], c='red', s=150, zorder=5, label=f'Signal')
-        ax.set_title(f'EWMA Chart for Detecting Slow Assay Drift', fontweight='bold')
+        fig.add_trace(go.Scatter(x=x_axis, y=data, mode='lines+markers', name='Daily Control', marker=dict(color='grey', opacity=0.5))); fig.add_trace(go.Scatter(x=x_axis, y=ewma_vals, mode='lines+markers', name=f'EWMA (λ={lmbda})', line=dict(color='purple'))); fig.add_trace(go.Scatter(x=x_axis, y=UCL, mode='lines', name='EWMA UCL', line=dict(color='red'))); fig.update_layout(title_text='EWMA Chart for Detecting Slow Drift', yaxis_title='Assay Response (EU/mL)')
+        if len(out_idx) > 0: fig.add_trace(go.Scatter(x=[x_axis[out_idx[0]]], y=[ewma_vals[out_idx[0]]], mode='markers', marker=dict(color='red', size=15, symbol='x'), name='Signal'))
     else:
-        fig, ax = plt.subplots(); k = k_sigma * sigma; H = H_sigma * sigma; SH, SL = np.zeros_like(data), np.zeros_like(data)
+        k = k_sigma * sigma; H = H_sigma * sigma; SH, SL = np.zeros_like(data), np.zeros_like(data)
         for i in range(1, len(data)): SH[i] = max(0, SH[i-1] + (data[i] - target) - k); SL[i] = max(0, SL[i-1] + (target - data[i]) - k)
         out_idx = np.where((SH > H) | (SL > H))[0]
-        ax.plot(SH, 'o-', c='darkcyan', label='High-Side CUSUM (SH)'); ax.plot(SL, 'o-', c='darkorange', label='Low-Side CUSUM (SL)'); ax.axhline(H, color='red', linestyle='-', label=f'Control Limit H={H:.1f}'); ax.set_ylabel('Cumulative Sum')
-        if len(out_idx) > 0: ax.scatter(out_idx[0], SH[out_idx[0]], c='red', s=150, zorder=5, label='Signal')
-        ax.set_title(f'CUSUM Chart for Detecting Sustained Shifts', fontweight='bold')
-    ax.axvspan(25, 40, color='orange', alpha=0.2, label='Small (1.25σ) Process Shift'); ax.axhline(target if chart_type=='EWMA' else 0, c='black', ls='--', label='Target'); ax.legend(loc='upper left'); ax.set_xlabel('Analytical Run Number'); plt.tight_layout(); return fig
+        fig.add_trace(go.Scatter(x=x_axis, y=SH, mode='lines+markers', name='High-Side CUSUM (SH)', line=dict(color='darkcyan'))); fig.add_trace(go.Scatter(x=x_axis, y=SL, mode='lines+markers', name='Low-Side CUSUM (SL)', line=dict(color='darkorange'))); fig.add_hline(y=H, line_dash="dash", line_color="red", annotation_text=f"Limit H={H:.1f}"); fig.update_layout(title_text='CUSUM Chart for Detecting Sustained Shifts', yaxis_title='Cumulative Sum');
+        if len(out_idx) > 0: fig.add_trace(go.Scatter(x=[x_axis[out_idx[0]]], y=[SH[out_idx[0]]], mode='markers', marker=dict(color='red', size=15, symbol='x'), name='Signal'))
+    fig.add_vrect(x0=25.5, x1=40.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="Process Shift"); fig.add_hline(y=target if chart_type=='EWMA' else 0, line_dash="dot", line_color="black", annotation_text="Target"); fig.update_layout(height=600, xaxis_title='Analytical Run Number'); return fig
 
 def plot_multi_rule(rule_set='Westgard'):
-    fig, ax = plt.subplots(); np.random.seed(3); mean, std = 100, 2; data = np.concatenate([np.random.normal(mean, std, 5), [mean + 2.1*std, mean + 2.2*std], np.random.normal(mean, std, 2), np.linspace(mean - 0.5*std, mean - 2*std, 6), [mean + 3.5*std], np.random.normal(mean + 1.5*std, 0.3, 4), np.random.normal(mean, std, 3), np.random.normal(mean - 1.5*std, 0.3, 5)]); x = np.arange(1, len(data) + 1); ax.fill_between(x, mean+2*std, mean+3*std, color='orange', alpha=0.2, label='±2σ to ±3σ Zone (Warning)'); ax.fill_between(x, mean-3*std, mean-2*std, color='orange', alpha=0.2); ax.fill_between(x, mean+std, mean+2*std, color='gold', alpha=0.2, label='±1σ to ±2σ Zone'); ax.fill_between(x, mean-2*std, mean-std, color='gold', alpha=0.2); ax.axhline(mean, c='black', lw=1.5, ls='--', label=f'Nominal Value = {mean}')
-    for i in [-3, -2, -1, 1, 2, 3]: ax.axhline(mean+i*std, c='gray', lw=1, ls=':'); ax.text(len(data)+0.5, mean+i*std, f'{i}σ', va='center', ha='left', fontsize=10)
-    ax.plot(x, data, 'o-', c='darkblue', markersize=5, label='QC Sample Results'); title = f'{rule_set} Multi-Rule Chart for Analytical Run Validation'
-    if rule_set == 'Westgard': ax.annotate('1_3s Violation\n(Run REJECTED)', xy=(14, data[13]), xytext=(10, 108), arrowprops=dict(facecolor='red', shrink=0.05), c='red', weight='bold'); ax.annotate('2_2s Violation\n(Run REJECTED)', xy=(7, data[6]), xytext=(3, 108), arrowprops=dict(facecolor='red', shrink=0.05), c='red', weight='bold'); ax.annotate('4_1s Violation\n(Systematic Error)', xy=(16, data[15]), xytext=(18, 108), arrowprops=dict(facecolor='orange', shrink=0.05), c='orange', weight='bold')
-    else: title = 'Nelson Rules for Manufacturing Process Control'; ax.annotate('Rule 1\n(Process Halt)', xy=(14, data[13]), xytext=(10, 108), arrowprops=dict(facecolor='red', shrink=0.05), c='red', weight='bold'); ax.annotate('Rule 3\n(Trend Detected)', xy=(13, data[12]), xytext=(9, 92), arrowprops=dict(facecolor='orange', shrink=0.05), c='orange', weight='bold')
-    ax.set_title(title, fontweight='bold'); ax.set_xlabel('QC Run Number'); ax.set_ylabel('Measured Value'); ax.legend(loc='lower left'); ax.set_xlim(0, len(data) + 2); plt.tight_layout(); return fig
+    np.random.seed(3); mean, std = 100, 2; data = np.concatenate([np.random.normal(mean, std, 5), [mean + 2.1*std, mean + 2.2*std], np.random.normal(mean, std, 2), np.linspace(mean-0.5*std, mean-2*std, 6), [mean + 3.5*std], np.random.normal(mean + 1.5*std, 0.3, 4), np.random.normal(mean, std, 3), np.random.normal(mean - 1.5*std, 0.3, 5)]); x = np.arange(1, len(data) + 1); fig = go.Figure(); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='QC Sample', line=dict(color='darkblue')));
+    for i, color in zip([1, 2, 3], ['gold', 'orange', 'red']):
+        fig.add_hrect(y0=mean+i*std, y1=mean+(i+1)*std, fillcolor=color, opacity=0.1, layer="below", line_width=0); fig.add_hrect(y0=mean-i*std, y1=mean-(i+1)*std, fillcolor=color, opacity=0.1, layer="below", line_width=0)
+        fig.add_hline(y=mean+i*std, line_dash="dot", line_color="gray", annotation_text=f"+{i}σ"); fig.add_hline(y=mean-i*std, line_dash="dot", line_color="gray", annotation_text=f"-{i}σ")
+    fig.add_hline(y=mean, line_dash="dash", line_color="black", annotation_text="Mean"); fig.update_layout(title_text='QC Run Validation Chart', xaxis_title='QC Run Number', yaxis_title='Measured Value', height=600); return fig
 
 def plot_capability(Cpk_target):
-    fig, ax = plt.subplots(); np.random.seed(42); LSL, USL = 90, 110; process_mean = 101; process_std = (USL - LSL) / (6 * Cpk_target); data = np.random.normal(process_mean, process_std, 200); sigma_hat = np.std(data, ddof=1); Cpu = (USL - data.mean()) / (3 * sigma_hat); Cpl = (data.mean() - LSL) / (3 * sigma_hat); Cpk = np.min([Cpu, Cpl])
-    sns.histplot(data, ax=ax, kde=True, stat='density', label='Process Data'); ax.axvline(LSL, color='red', linestyle='--', lw=2.5, label=f'LSL = {LSL}'); ax.axvline(USL, color='red', linestyle='--', lw=2.5, label=f'USL = {USL}'); ax.axvline(data.mean(), color='black', linestyle=':', lw=2, label=f'Process Mean = {data.mean():.2f}'); ax.set_title('Process Capability Analysis (Cpk)', fontweight='bold', fontsize=16); ax.legend()
-    status = "Pass" if Cpk >= 1.33 else "Fail"; color = "darkgreen" if status == "Pass" else "darkred"; info_text = f'Cpk = {Cpk:.2f}\nTarget >= 1.33\nStatus: {status}'; ax.text(0.05, 0.95, info_text, transform=ax.transAxes, fontsize=14, verticalalignment='top', bbox=dict(boxstyle='round,pad=0.5', fc=color, alpha=0.7), color='white'); plt.tight_layout(); return fig
+    np.random.seed(42); LSL, USL = 90, 110; process_mean = 101; process_std = (USL - LSL) / (6 * Cpk_target); data = np.random.normal(process_mean, process_std, 200); sigma_hat = np.std(data, ddof=1); Cpu = (USL - data.mean()) / (3 * sigma_hat); Cpl = (data.mean() - LSL) / (3 * sigma_hat); Cpk = np.min([Cpu, Cpl]); fig = px.histogram(data, nbins=30, histnorm='probability density', marginal='rug'); fig.add_vline(x=LSL, line_dash="dash", line_color="red", annotation_text="LSL"); fig.add_vline(x=USL, line_dash="dash", line_color="red", annotation_text="USL"); fig.add_vline(x=data.mean(), line_dash="dot", line_color="black", annotation_text="Mean"); color = "darkgreen" if Cpk >= 1.33 else "darkred"; fig.add_annotation(text=f"Cpk = {Cpk:.2f}", align='left', showarrow=False, xref='paper', yref='paper', x=0.05, y=0.95, bordercolor="black", borderwidth=1, bgcolor=color, font=dict(color="white")); fig.update_layout(title_text='Process Capability Analysis (Cpk)', height=600); return fig, Cpk
 
 def plot_anomaly_detection():
-    fig, ax = plt.subplots(figsize=(10,8)); np.random.seed(42); X_normal = np.random.multivariate_normal([100, 20], [[5, 2],[2, 1]], 200); X_anomalies = np.array([[95, 25], [110, 18], [115, 28]]); X = np.vstack([X_normal, X_anomalies]); model = IsolationForest(n_estimators=100, contamination=0.015, random_state=42); model.fit(X); y_pred = model.predict(X)
-    DecisionBoundaryDisplay.from_estimator(model, X, ax=ax, response_method="predict", cmap='Blues_r', alpha=0.4); scatter = ax.scatter(X[:, 0], X[:, 1], c=y_pred, cmap='coolwarm_r', s=50, edgecolor='k'); legend1 = ax.legend(handles=scatter.legend_elements()[0], labels=['Normal Run', 'Anomaly'], title="Status"); ax.add_artist(legend1)
-    ax.set_title('Multivariate Anomaly Detection (Isolation Forest)', fontweight='bold'); ax.set_xlabel('Assay Response (e.g., Fluorescence Units)'); ax.set_ylabel('Incubation Time (min)'); return fig
+    np.random.seed(42); X_normal = np.random.multivariate_normal([100, 20], [[5, 2],[2, 1]], 200); X_anomalies = np.array([[95, 25], [110, 18], [115, 28]]); X = np.vstack([X_normal, X_anomalies]); model = IsolationForest(n_estimators=100, contamination=0.015, random_state=42); model.fit(X); y_pred = model.predict(X); xx, yy = np.meshgrid(np.linspace(X[:, 0].min()-5, X[:, 0].max()+5, 100), np.linspace(X[:, 1].min()-5, X[:, 1].max()+5, 100)); Z = model.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+    fig = go.Figure(); fig.add_trace(go.Contour(x=xx[0], y=yy[:,0], z=Z, colorscale='Blues_r', showscale=False, opacity=0.4)); fig.add_trace(go.Scatter(x=X[:, 0], y=X[:, 1], mode='markers', marker=dict(color=y_pred, colorscale='coolwarm_r', line=dict(width=1, color='black')), text=[f"Status: {'Anomaly' if p==-1 else 'Normal'}" for p in y_pred], hoverinfo='x+y+text')); fig.update_layout(title_text='Multivariate Anomaly Detection (Isolation Forest)', xaxis_title='Assay Response (Fluorescence Units)', yaxis_title='Incubation Time (min)', height=600); return fig
 
 def plot_predictive_qc():
-    fig, ax = plt.subplots(figsize=(10, 8)); np.random.seed(1); n_points = 150; X1 = np.random.normal(5, 2, n_points); X2 = np.random.normal(25, 3, n_points); logit_p = -15 + 1.5 * X1 + 0.5 * X2 + np.random.normal(0, 2, n_points); p = 1 / (1 + np.exp(-logit_p)); y = np.random.binomial(1, p); X = np.vstack([X1, X2]).T
-    model = LogisticRegression().fit(X, y); DecisionBoundaryDisplay.from_estimator(model, X, ax=ax, response_method="predict_proba", pcolormesh_kw={'alpha': 0.4, 'cmap':'RdYlGn_r'}, xlabel='Reagent Age (days)', ylabel='Incubation Temp (°C)')
-    scatter = ax.scatter(X[:, 0], X[:, 1], c=y, cmap='RdYlGn', edgecolor='k'); ax.legend(handles=scatter.legend_elements()[0], labels=['Pass', 'Fail'], title="Actual Outcome"); ax.set_title('Predictive QC: Predicting Run Failure with Logistic Regression', fontweight='bold'); return fig
+    np.random.seed(1); n_points = 150; X1 = np.random.normal(5, 2, n_points); X2 = np.random.normal(25, 3, n_points); logit_p = -15 + 1.5 * X1 + 0.5 * X2 + np.random.normal(0, 2, n_points); p = 1 / (1 + np.exp(-logit_p)); y = np.random.binomial(1, p); X = np.vstack([X1, X2]).T; model = LogisticRegression().fit(X, y); xx, yy = np.meshgrid(np.linspace(X[:,0].min()-1, X[:,0].max()+1, 200), np.linspace(X[:,1].min()-1, X[:,1].max()+1, 200)); Z = model.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1].reshape(xx.shape)
+    fig = go.Figure(); fig.add_trace(go.Contour(x=xx[0], y=yy[:,0], z=Z, colorscale='RdYlGn_r', showscale=True, name='P(Fail)')); df_plot = pd.DataFrame({'X1': X[:,0], 'X2': X[:,1], 'Outcome': ['Pass' if i==0 else 'Fail' for i in y]}); fig_scatter = px.scatter(df_plot, x='X1', y='X2', color='Outcome', color_discrete_map={'Pass':'green', 'Fail':'red'});
+    for trace in fig_scatter.data: fig.add_trace(trace)
+    fig.update_layout(title_text='Predictive QC: Predicting Run Failure', xaxis_title='Reagent Age (days)', yaxis_title='Incubation Temp (°C)', height=600); return fig
 
 def plot_forecasting():
     np.random.seed(42); dates = pd.to_datetime(pd.date_range(start='2022-01-01', periods=104, freq='W')); trend = np.linspace(0, 5, 104); seasonality = 1.5 * np.sin(np.arange(104) * (2 * np.pi / 52.14)); noise = np.random.normal(0, 0.5, 104); y = 50 + trend + seasonality + noise; df = pd.DataFrame({'ds': dates, 'y': y}); model = Prophet(weekly_seasonality=False, daily_seasonality=False); model.fit(df); future = model.make_future_dataframe(periods=26, freq='W'); forecast = model.predict(future)
-    fig1 = model.plot(forecast, xlabel='Date', ylabel='Control Value (U/mL)'); ax = fig1.gca(); ax.set_title('Time Series Forecasting of Control Performance', fontweight='bold'); ax.axhline(58, c='red', ls='--', label='Upper Spec Limit'); ax.legend()
-    fig2 = model.plot_components(forecast); return fig1, fig2
+    fig1 = plot_plotly(model, forecast); fig1.add_hline(y=58, line_dash="dash", line_color="red", annotation_text="Upper Spec Limit"); fig1.update_layout(title_text='Time Series Forecasting of Control Performance'); fig2 = plot_components_plotly(model, forecast); return fig1, fig2
 
 def plot_wilson(successes, n_samples):
-    fig, ax = plt.subplots(); p_hat = successes / n_samples if n_samples > 0 else 0; wald_lower, wald_upper = stats.norm.interval(0.95, loc=p_hat, scale=np.sqrt(p_hat*(1-p_hat)/n_samples)) if n_samples > 0 else (0,0); wilson_lower, wilson_upper = wilson_score_interval(p_hat, n_samples); cp_lower, cp_upper = clopper_pearson_interval(successes, n_samples)
-    intervals = {"Wald (Approximate)": (wald_lower, wald_upper, 'red'), "Wilson Score": (wilson_lower, wilson_upper, 'blue'), "Clopper-Pearson (Exact)": (cp_lower, cp_upper, 'green')};
-    for i, (name, (lower, upper, color)) in enumerate(intervals.items()): ax.plot([lower, upper], [i, i], lw=8, color=color, solid_capstyle='round', label=f"{name}: [{lower:.3f}, {upper:.3f}]")
-    ax.axvline(p_hat, c='black', ls='--', label=f'Observed Rate p̂={p_hat:.3f}'); ax.set_yticks(range(len(intervals))); ax.set_yticklabels(intervals.keys()); ax.set_xlabel('Concordance Rate'); ax.set_title(f'Comparing CIs for {successes}/{n_samples} Concordant Results', fontweight='bold'); ax.legend(loc='lower right'); ax.set_xlim(-0.05, 1.05); plt.tight_layout(); return fig
+    p_hat = successes / n_samples if n_samples > 0 else 0; wald_lower, wald_upper = stats.norm.interval(0.95, loc=p_hat, scale=np.sqrt(p_hat*(1-p_hat)/n_samples)) if n_samples > 0 else (0,0); wilson_lower, wilson_upper = wilson_score_interval(p_hat, n_samples); cp_lower, cp_upper = clopper_pearson_interval(successes, n_samples); intervals = {"Wald (Approximate)": (wald_lower, wald_upper, 'red'), "Wilson Score": (wilson_lower, wilson_upper, 'blue'), "Clopper-Pearson (Exact)": (cp_lower, cp_upper, 'green')}; fig = go.Figure()
+    for i, (name, (lower, upper, color)) in enumerate(intervals.items()): fig.add_trace(go.Scatter(x=[lower, upper], y=[name, name], mode='lines+markers', line=dict(color=color, width=10), name=name, hoverinfo='text', text=f"[{lower:.3f}, {upper:.3f}]"))
+    fig.add_vline(x=p_hat, line_dash="dash", line_color="black", annotation_text=f"Observed Rate={p_hat:.2%}"); fig.update_layout(title_text=f'Comparing 95% CIs for {successes}/{n_samples} Concordant Results', xaxis_title='Concordance Rate', height=500); return fig
 
 def plot_bayesian(prior_type):
-    fig, ax = plt.subplots(); n_qc, successes_qc = 20, 18; observed_rate = successes_qc / n_qc
-    if prior_type == "No Prior (Frequentist)": prior_alpha, prior_beta = 1, 1
-    elif prior_type == "Strong R&D Prior": prior_alpha, prior_beta = 490, 10
-    else: prior_alpha, prior_beta = 10, 10
-    prior_dist = beta.pdf(np.linspace(0, 1, 1000), prior_alpha, prior_beta); posterior_alpha, posterior_beta = prior_alpha + successes_qc, prior_beta + (n_qc - successes_qc); posterior_dist = beta.pdf(np.linspace(0, 1, 1000), posterior_alpha, posterior_beta); cred_interval = beta.interval(0.95, posterior_alpha, posterior_beta)
-    ax.plot(np.linspace(0,1,1000), posterior_dist, 'b-', lw=3, label=f'Posterior Belief'); ax.fill_between(np.linspace(0,1,1000), posterior_dist, where=(np.linspace(0,1,1000) >= cred_interval[0]) & (np.linspace(0,1,1000) <= cred_interval[1]), color='blue', alpha=0.2, label=f'95% Credible Interval\n[{cred_interval[0]:.2f}, {cred_interval[1]:.2f}]'); ax.plot(np.linspace(0,1,1000), prior_dist, 'g--', lw=2, label=f'Prior Belief ({prior_type})'); ax.axvline(observed_rate, color='red', linestyle=':', lw=2, label=f'QC Lab Data ({observed_rate:.2f})')
-    ax.set_title('Bayesian Inference for Assay Concordance Rate', fontweight='bold'); ax.set_xlabel('Assay Pass Rate (Concordance)'); ax.set_ylabel('Probability Density'); ax.legend(loc='upper left'); ax.set_xlim(0.6, 1.0); plt.tight_layout(); return fig
+    n_qc, successes_qc = 20, 18; observed_rate = successes_qc / n_qc;
+    if prior_type == "Strong R&D Prior": prior_alpha, prior_beta = 490, 10
+    elif prior_type == "Skeptical/Regulatory Prior": prior_alpha, prior_beta = 10, 10
+    else: prior_alpha, prior_beta = 1, 1
+    p_range = np.linspace(0, 1, 1000); prior_dist = beta.pdf(p_range, prior_alpha, prior_beta); posterior_alpha, posterior_beta = prior_alpha + successes_qc, prior_beta + (n_qc - successes_qc); posterior_dist = beta.pdf(p_range, posterior_alpha, posterior_beta); cred_interval = beta.interval(0.95, posterior_alpha, posterior_beta)
+    fig = go.Figure(); fig.add_trace(go.Scatter(x=p_range, y=prior_dist, mode='lines', name='Prior Belief', line=dict(dash='dash', color='green'))); fig.add_trace(go.Scatter(x=p_range, y=posterior_dist, mode='lines', name='Posterior Belief', line=dict(color='blue', width=3), fill='tozeroy', fillcolor='rgba(0,0,255,0.1)')); fig.add_vline(x=observed_rate, line_dash="dot", line_color="red", annotation_text=f"QC Data={observed_rate:.2%}")
+    fig.update_layout(title_text='Bayesian Inference for Assay Concordance Rate', xaxis_title='Assay Pass Rate (Concordance)', yaxis_title='Probability Density', height=600, xaxis_range=[0.7, 1.0]); return fig
 
 def plot_ci_concept():
-    fig, ax = plt.subplots(); np.random.seed(123); pop_mean, pop_std, n = 100, 15, 30; n_sims = 100; capture_count = 0
+    np.random.seed(123); pop_mean, pop_std, n = 100, 15, 30; n_sims = 100; capture_count = 0; fig = go.Figure()
     for i in range(n_sims):
-        sample = np.random.normal(pop_mean, pop_std, n); sample_mean = np.mean(sample); margin_of_error = 1.96 * (pop_std / np.sqrt(n)); ci_lower, ci_upper = sample_mean - margin_of_error, sample_mean + margin_of_error
-        color = 'cornflowerblue' if ci_lower <= pop_mean <= ci_upper else 'red'
+        sample = np.random.normal(pop_mean, pop_std, n); sample_mean = np.mean(sample); margin_of_error = 1.96 * (pop_std / np.sqrt(n)); ci_lower, ci_upper = sample_mean - margin_of_error, sample_mean + margin_of_error; color = 'cornflowerblue' if ci_lower <= pop_mean <= ci_upper else 'red';
         if color == 'cornflowerblue': capture_count += 1
-        ax.plot([ci_lower, ci_upper], [i, i], color=color, lw=2); ax.plot(sample_mean, i, 'o', color='black', markersize=3)
-    capture_rate = capture_count / n_sims; ax.axvline(pop_mean, color='black', linestyle='--', lw=2, label=f'True Population Mean (μ={pop_mean})'); ax.set_title(f'Conceptual Simulation of 100 95% Confidence Intervals', fontweight='bold'); ax.set_xlabel('Value'); ax.set_ylabel('Simulation Run'); ax.legend(loc='upper right')
-    info_text = (f"Out of 100 simulations, {capture_count} CIs ({capture_rate:.0%}) 'captured' the true mean.\nThis demonstrates the meaning of 95% confidence: the *procedure* works\n95% of the time, not that any single interval has a 95% probability."); ax.text(0.02, 0.98, info_text, transform=ax.transAxes, fontsize=11, verticalalignment='top', bbox=dict(boxstyle='round,pad=0.5', fc='aliceblue', alpha=0.9)); ax.set_ylim(-2, n_sims + 2); plt.tight_layout(); return fig
-
+        fig.add_trace(go.Scatter(x=[ci_lower, ci_upper], y=[i, i], mode='lines', line=dict(color=color, width=3), hoverinfo='none')); fig.add_trace(go.Scatter(x=[sample_mean], y=[i], mode='markers', marker=dict(color='black', size=5), hoverinfo='none'))
+    fig.add_vline(x=pop_mean, line_dash="dash", line_color="black", annotation_text=f"True Mean={pop_mean}"); fig.update_layout(title_text=f'Conceptual Simulation of 100 95% Confidence Intervals', xaxis_title='Value', yaxis_title='Simulation Run', showlegend=False, height=700); return fig, capture_count, n_sims
 
 # ==============================================================================
-# MAIN APP - REPORT LAYOUT
+# MAIN APP LAYOUT
 # ==============================================================================
-st.title("🔬 The Authoritative Assay Transfer Statistical Toolkit")
-st.markdown("A comprehensive, interactive guide bridging **Classical SPC** and **Modern ML/AI** for a successful technical assay transfer and lifecycle management. This report is a sequential walkthrough of the key statistical validation and monitoring steps.")
-st.info("Each section includes an **Objective**, the **Visual Rendering**, **Interpretation & Acceptance Criteria**, and a deep-dive **Method Theory** expander.")
+st.title("🔬 An Interactive Guide to Assay Transfer Statistics")
+st.markdown("This application offers a collection of interactive tools to explore the statistical methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
+
+st.image("https://i.imgur.com/xO4kC9O.png", caption="A hierarchical map showing the relationship between academic disciplines, core domains, and the specific tools covered in this guide.", use_container_width=True)
+st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
 
-# --- 1. Gage R&R ---
-st.header("1. Gage R&R (Measurement System Analysis)")
-st.markdown("""
-**Objective:** Before evaluating a process, one must first validate the measurement system itself. A Gage R&R study quantifies the inherent variability (error) of the assay, partitioning it into two main components: repeatability and reproducibility. This is the first gate; you cannot validate a process with a broken ruler.
-""")
-st.pyplot(plot_gage_rr())
-st.subheader("Interpretation & Acceptance Criteria")
-st.markdown("""
-- **Repeatability:** Also known as Equipment Variation (EV), this is the variation observed when one operator measures the same sample multiple times with the same device. It represents the inherent, best-case precision of the assay/instrument.
-- **Reproducibility:** Also known as Appraiser Variation (AV), this is the variation observed when *different* operators measure the same sample. It captures sources of error like differences in operator technique.
-- **% Gage R&R:** The total measurement system variation as a percentage of the total process variation. This is the key metric for judging the system's fitness-for-use.
-- **Acceptance Rules (AIAG Guidelines):**
-    - `**< 10%**`: The measurement system is **acceptable**.
-    - `**10% - 30%**`: The system is **conditionally acceptable**, depending on the importance of the application, cost of the measurement, and cost of improvement.
-    - `**> 30%**`: The measurement system is **unacceptable** and requires improvement before it can be used to assess the process.
-""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Gage R&R studies became a cornerstone of the automotive industry's quality initiatives (e.g., QS-9000) and are formalized by the Automotive Industry Action Group (AIAG). Using ANOVA to partition the variance is the statistically rigorous and preferred method.
-    **Mathematical Basis (ANOVA Method):** The total sum of squares ($SS_T$) is partitioned: $ SS_T = SS_{Part} + SS_{Operator} + SS_{Interaction} + SS_{Error} $. From the Mean Squares (MS), we estimate variance components:
-    - **Repeatability (EV):** $\hat{\sigma}^2_{EV} = MS_{Error}$
-    - **Reproducibility (AV):** $\hat{\sigma}^2_{AV} = \frac{MS_{Operator} - MS_{Interaction}}{n_{parts} \cdot n_{replicates}} + \frac{MS_{Interaction} - MS_{Error}}{n_{replicates}}$
-    - **Gage R&R:** $\hat{\sigma}^2_{R\&R} = \hat{\sigma}^2_{EV} + \hat{\sigma}^2_{AV}$
-    The study variation is then calculated against the total variation: $ \%R\&R = 100 \times \left( \frac{\hat{\sigma}_{R\&R}}{\hat{\sigma}_{Total}} \right) $""")
-st.divider()
+# --- Sidebar Controls ---
+st.sidebar.title("Toolkit Navigation")
+st.sidebar.markdown("Select a statistical method to analyze and visualize.")
+method_key = st.sidebar.radio("Select a Method:", options=[
+    "1. Gage R&R", "2. Linearity and Range", "3. LOD & LOQ", "4. Method Comparison",
+    "5. Assay Robustness (DOE)", "6. Process Stability (Shewhart)", "7. Small Shift Detection",
+    "8. Run Validation", "9. Process Capability (Cpk)", "10. Anomaly Detection (ML)",
+    "11. Predictive QC (ML)", "12. Control Forecasting (AI)", "13. Pass/Fail Analysis",
+    "14. Bayesian Inference", "15. Confidence Interval Concept"
+])
+st.header(method_key)
 
-# --- 2. Linearity ---
-st.header("2. Linearity and Range")
-st.markdown("""
-**Objective:** To verify the assay's ability to provide results that are directly proportional to the concentration of the analyte across a specified range. This study establishes the "reportable range" of the assay, within which results are considered reliable.
-""")
-fig, model = plot_linearity()
-st.pyplot(fig)
-st.subheader("Interpretation & Acceptance Criteria")
-st.markdown(f"""
-- **Linearity Plot:** A visual inspection should show that the points lie close to the best-fit line. The "Line of Identity" (y=x) represents a perfect 1:1 relationship.
-- **Residual Plot:** This is the most critical diagnostic. It should show a random, horizontal scatter of points around the zero line. Any clear pattern (like a curve or a funnel shape) indicates non-linearity or non-constant variance.
-- **Quantitative Acceptance Rules:**
-    - **Coefficient of Determination (R²):** Should typically be **> 0.995**. (This fit: **R² = {model.rsquared:.4f}**)
-    - **Slope:** The 95% confidence interval for the slope should contain 1.0. A common rule of thumb is that the point estimate should be within a specific range, e.g., **0.95 - 1.05**. (This fit: **Slope = {model.params[1]:.3f}**)
-    - **Intercept:** The 95% confidence interval for the intercept should contain 0, indicating no significant constant bias. (This fit: **Intercept = {model.params[0]:.2f}**)
-""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Based on Ordinary Least Squares (OLS) regression, a fundamental statistical method developed by Legendre and Gauss in the early 1800s. In assay validation, we test the hypothesis that the measured values have a linear relationship with the nominal (true) values.
-    **Mathematical Basis:** We fit the model $y = \beta_0 + \beta_1 x + \epsilon$.
-    - $y$ is the measured concentration.
-    - $x$ is the nominal concentration.
-    - $\beta_1$ is the slope (ideal = 1).
-    - $\beta_0$ is the y-intercept or constant bias (ideal = 0).
-    - $\epsilon$ is the random error.
-    We test the null hypotheses $H_0: \beta_1 = 1$ and $H_0: \beta_0 = 0$. The R² value measures the proportion of the variance in the dependent variable that is predictable from the independent variable.""")
-st.divider()
+# --- Dynamic Content Display ---
 
-# --- 3. LOD & LOQ ---
-st.header("3. Limit of Detection (LOD) & Limit of Quantitation (LOQ)")
-st.markdown("""
-**Objective:** To determine the lowest concentration of an analyte that the assay can reliably detect (LOD) and accurately measure (LOQ). This defines the lower limit of the assay's useful range and is critical for applications like impurity testing.
-""")
-st.pyplot(plot_lod_loq())
-st.subheader("Interpretation & Acceptance Criteria")
-st.markdown("""
-- **Limit of Detection (LOD):** The lowest analyte concentration that can be reliably distinguished from a blank sample, though not necessarily quantified with precision. It answers the question, "Is the analyte present?"
-- **Limit of Quantitation (LOQ):** The lowest analyte concentration that can be measured with an acceptable level of precision and accuracy. This is the lower boundary of the reportable range.
-- **Acceptance Rule:** The experimentally determined **LOQ must be less than or equal to the lowest concentration that needs to be measured** for the assay's intended use (e.g., the specification limit for an impurity).
-""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Based on recommendations from the International Council for Harmonisation (ICH) Q2(R1) guidelines, which provide a framework for analytical procedure validation.
-    **Mathematical Basis (Signal-to-Noise approach):** This method uses the standard deviation of the response of multiple blank samples.
-    - **LOD:** Estimated as the mean of the blank plus 3.3 times the standard deviation of the blank. This corresponds to a point where the signal is roughly 3 times the noise level.
-        $$ LOD = \bar{y}_{blank} + 3.3 \sigma_{blank} $$
-    - **LOQ:** Estimated as the mean of the blank plus 10 times the standard deviation of the blank. This higher threshold ensures that at this concentration, the measurement is not only detectable but also precise enough for reliable quantification.
-        $$ LOQ = \bar{y}_{blank} + 10 \sigma_{blank} $$""")
-st.divider()
+if "Gage R&R" in method_key:
+    st.markdown("**Objective:** Before evaluating a process, you must first validate the measurement system. A Gage R&R study quantifies the inherent variability (error) of the assay, partitioning it into components like repeatability and reproducibility.")
+    col1, col2 = st.columns([0.7, 0.3]);
+    with col1: fig, pct_rr, pct_part = plot_gage_rr(); st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.metric(label="% Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse"); st.metric(label="% Part-to-Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
+            st.markdown("---"); st.markdown("##### Acceptance Rules (AIAG):"); st.markdown("- **< 10%:** System is **acceptable**."); st.markdown("- **10% - 30%:** **Conditionally acceptable**."); st.markdown("- **> 30%:** System is **unacceptable**.")
 
-# --- 4. Method Comparison ---
-st.header("4. Method Comparison (Deming & Bland-Altman)")
-st.markdown("""
-**Objective:** To formally assess the agreement and bias between two different methods (e.g., an old vs. new assay, or the sending R&D lab vs. the receiving QC lab). This is a cornerstone of an assay transfer, replacing simpler T-tests with a more powerful analysis across the full measurement range.
-""")
-st.pyplot(plot_method_comparison())
-st.subheader("Interpretation & Acceptance Criteria")
-st.markdown("""
-- **Deming Regression:** A best-fit line that accounts for measurement error in both methods. It is used to assess for systematic errors:
-    - **Constant Bias:** Indicated by an intercept significantly different from 0.
-    - **Proportional Bias:** Indicated by a slope significantly different from 1.
-    - **Acceptance Rule:** The **95% confidence interval for the slope must contain 1.0** and the **95% confidence interval for the intercept must contain 0**.
-- **Bland-Altman Plot:** A graphical method to visualize the agreement between methods. It plots the difference between methods against their average.
-    - **Mean Bias:** The center line on the plot. Should be close to zero.
-    - **Limits of Agreement (LoA):** The interval ($\pm 1.96 \cdot SD_{diff}$) where 95% of future differences are expected to lie.
-    - **Acceptance Rule:** The **width of the LoA must be clinically or practically acceptable**. For example, a protocol might state that the LoA must be within $\pm15\%$ of the average measured value.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:**
-    - **Deming Regression:** Named after W. Edwards Deming, it's an errors-in-variables model that is more appropriate than OLS when both X and Y have measurement error.
-    - **Bland-Altman Plot:** Introduced by J. Martin Bland and Douglas G. Altman in a 1986 Lancet paper to address the misuse of correlation for assessing agreement.
-    **Mathematical Basis:**
-    - **Deming:** Minimizes the sum of squared perpendicular distances from points to the line, weighted by the error variance ratio ($\lambda = \sigma^2_y / \sigma^2_x$).
-    - **Bland-Altman:** For each sample $i$, calculate Average $(\frac{x_i+y_i}{2})$ and Difference $(y_i - x_i)$. The Limits of Agreement are $\bar{d} \pm 1.96 \cdot s_d$, where $\bar{d}$ and $s_d$ are the mean and standard deviation of the differences.""")
-st.divider()
+elif "Linearity and Range" in method_key:
+    st.markdown("**Objective:** To verify the assay's ability to provide results that are directly proportional to the analyte concentration across a specified range, thereby defining its reportable limits.")
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: fig, model = plot_linearity(); st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.metric(label="R-squared (R²)", value=f"{model.rsquared:.4f}"); st.metric(label="Slope", value=f"{model.params[1]:.3f}"); st.metric(label="Y-Intercept", value=f"{model.params[0]:.2f}")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **R² > 0.995** is typically required."); st.markdown("- **Slope** should be within **0.95 - 1.05**."); st.markdown("- **Intercept CI** should contain **0**."); st.markdown("- **Residuals** must be random and unstructured.")
 
-# --- 5. Assay Robustness ---
-st.header("5. Assay Robustness (Design of Experiments - DOE)")
-st.markdown("""
-**Objective:** To proactively assess the assay's performance when small, deliberate changes are made to its input parameters (e.g., temperature, pH, incubation time). This study identifies which parameters are most critical to control, leading to a more "robust" and reliable method.
-""")
-st.pyplot(plot_robustness())
-st.subheader("Interpretation & Acceptance Criteria")
-st.markdown("""
-- **Pareto Plot:** This is the key output. It ranks the factors and their interactions from most to least significant. This immediately focuses control efforts on the "vital few" parameters.
-- **Interaction Plot:** Visualizes how the effect of one factor changes at different levels of another. Non-parallel lines indicate a significant interaction, a complex relationship that must be understood (e.g., "the effect of temperature is different at high pH than at low pH").
-- **Acceptance Rule:** The primary goal is knowledge, not a simple pass/fail. The acceptance criterion is that the study demonstrates that **small, expected variations in parameters during routine use do NOT significantly impact the assay result**. If a factor (or interaction) is found to be significant, its allowable operating range must be tightened in the final Standard Operating Procedure (SOP).""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Pioneered by Sir Ronald A. Fisher in the 1920s at the Rothamsted Agricultural Experimental Station. Factorial designs are a key component of DOE, allowing for the efficient study of multiple factors and their interactions simultaneously.
-    **Mathematical Basis:** A 2-level factorial design involves testing all combinations of factors at a high (+1) and low (-1) level. The effect of each factor and interaction is calculated by fitting a linear model. For a 3-factor experiment:
-    $$ y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_3 + \beta_{12} X_1 X_2 + ... + \epsilon $$
-    The coefficients ($\beta$) represent the standardized effects. The Pareto plot is a bar chart of these effects, which are tested for statistical significance using ANOVA. The larger the coefficient, the more robust the parameter needs to be.""")
-st.divider()
+elif "LOD & LOQ" in method_key:
+    st.markdown("**Objective:** To determine the lowest concentration at which the assay can reliably detect (LOD) and accurately quantify (LOQ) an analyte, defining the lower limit of its useful range.")
+    col1, col2 = st.columns([0.7, 0.3]);
+    with col1: fig, lod_val, loq_val = plot_lod_loq(); st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.metric(label="Limit of Detection (LOD)", value=f"{lod_val:.2f} units"); st.metric(label="Limit of Quantitation (LOQ)", value=f"{loq_val:.2f} units")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **LOQ must be ≤ the lowest required concentration** for the assay's intended use.")
 
-# --- 6. Process Stability (Shewhart) ---
-st.header("6. Process Stability (Shewhart I-MR)")
-st.markdown("""**Objective:** After validating the measurement system, the next step is to demonstrate that the assay can be run in a stable and predictable manner at the receiving site. The I-MR chart is the fundamental tool for this, monitoring both the accuracy (mean) and precision (variability) of the process over time.""")
-st.pyplot(plot_shewhart())
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **I-Chart (Individuals):** Monitors the process center (accuracy). A point outside the red control limits indicates a "special cause" shift in the mean.
-- **MR-Chart (Moving Range):** Monitors the short-term, run-to-run variability (precision). A point outside the control limit indicates a change in process consistency.
-- **Acceptance Rule:** A process is considered stable and ready for further validation only when **at least 20-25 consecutive points on both the I-chart and MR-chart show no out-of-control signals** or other obvious non-random patterns.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Developed by Walter A. Shewhart at Bell Labs in the 1920s.
-    **Mathematical Basis:** Estimate process standard deviation via $\hat{\sigma} = \frac{\overline{MR}}{d_2}$ (where $d_2=1.128$ for a moving range of size 2).
-    - **I-Chart Limits:** $UCL/LCL = \bar{x} \pm 3\hat{\sigma}$
-    - **MR-Chart Limits:** $UCL = D_4 \overline{MR}$ (where $D_4=3.267$ for a moving range of size 2).""")
-st.divider()
+elif "Method Comparison" in method_key:
+    st.markdown("**Objective:** To formally assess the agreement and bias between two methods (e.g., R&D vs. QC lab). This is a cornerstone of transfer, replacing simpler tests with a more powerful analysis across the full measurement range.")
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: fig, slope, intercept, bias, ua, la = plot_method_comparison(); st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.metric(label="Deming Slope", value=f"{slope:.3f}"); st.metric(label="Mean Bias (B-A)", value=f"{bias:.2f}")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **Deming:** Slope CI should contain 1; Intercept CI should contain 0."); st.markdown(f"- **Bland-Altman:** >95% of points must be within the Limits of Agreement. The LoA width (`{la:.2f}` to `{ua:.2f}`) must be practically acceptable.")
 
-# --- 7. Small Shift Detection (EWMA/CUSUM) ---
-st.header("7. Small Shift Detection (EWMA/CUSUM)")
-st.markdown("""**Objective:** To implement more sensitive monitoring charts that can detect small, systematic drifts or shifts in assay performance that a standard Shewhart chart might miss. This is crucial for long-term process monitoring and detecting issues like gradual reagent degradation.""")
-chart_type = st.radio("Select Chart Type:", ('EWMA', 'CUSUM'), horizontal=True)
-if chart_type == 'EWMA': lmbda = st.slider("EWMA Lambda (λ)", 0.05, 1.0, 0.2, 0.05); k_sigma, H_sigma = 0, 0
-else: k_sigma = st.slider("CUSUM Slack (k, in σ)", 0.25, 1.5, 0.5, 0.25); H_sigma = st.slider("CUSUM Limit (H, in σ)", 2.0, 8.0, 5.0, 0.5); lmbda = 0
-st.pyplot(plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma))
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **EWMA (Exponentially Weighted Moving Average):** Excellent for detecting small *drifts* or trends. It smooths the data by giving more weight to recent points.
-    - **EWMA Rule:** For long-term monitoring, use a small `λ` (e.g., **0.1 to 0.3**). A signal occurs if the purple EWMA line crosses the red control limits.
-- **CUSUM (Cumulative Sum):** The most statistically powerful method for detecting a small, but *abrupt and sustained* shift in the process mean. It directly accumulates deviations from the target.
-    - **CUSUM Rule:** Set the "slack" parameter `k` to half the magnitude of the shift you want to detect (e.g., **k=0.5σ** to quickly detect a 1σ shift). A signal occurs if either CUSUM line crosses the control limit `H`.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** EWMA was proposed by S. W. Roberts (1959). CUSUM was developed by E. S. Page (1954) as an optimal test.
-    **Mathematical Basis:**
-    - **EWMA:** The statistic is a weighted average of the current point and the previous EWMA value: $ z_i = \lambda x_i + (1-\lambda)z_{i-1} $
-    - **CUSUM:** Two statistics accumulate deviations above and below the target, incorporating a slack value, k: $SH_i = \max(0, SH_{i-1} + (x_i - \mu_0) - k)$. A signal occurs if the statistic exceeds a decision interval, H.""")
-st.divider()
+elif "Assay Robustness" in method_key:
+    st.markdown("**Objective:** To proactively assess the assay's performance when small, deliberate changes are made to its input parameters (e.g., temperature, pH), identifying which factors are most critical to control.")
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: st.plotly_chart(plot_robustness(), use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.markdown("- **Pareto Plot:** Ranks factors by their impact, focusing control efforts on the 'vital few'."); st.markdown("- **Interaction Plot:** Non-parallel lines reveal complex relationships that must be controlled.")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- The study must prove that **small, expected parameter variations do NOT significantly impact results**. If a factor is significant, its operating range in the SOP must be tightened.")
 
-# --- 8. Run Validation (Westgard/Nelson) ---
-st.header("8. Run Validation (Westgard/Nelson)")
-st.markdown("""**Objective:** To implement an objective, statistically-driven system for accepting or rejecting each individual analytical run based on QC sample performance. These multi-rule systems add sensitivity to detect non-random patterns beyond a simple limit violation.""")
-rule_set_choice = st.radio("Select Rule Set:", ('Westgard', 'Nelson'), horizontal=True)
-st.pyplot(plot_multi_rule(rule_set_choice))
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **Westgard Rules:** The gold standard in clinical and QC labs, designed to balance error detection with low false rejection rates.
-    - **Westgard Rule:** A run is **rejected** if a "rejection rule" like **1_3s** (one point > 3σ), **2_2s** (two consecutive points > 2σ on the same side), or **R_4s** (one point > +2σ, the next > -2σ) is violated. A **1_2s** is a "warning rule" that prompts inspection of other rules.
-- **Nelson Rules:** Common in manufacturing, these rules are excellent at detecting trends and shifts.
-    - **Nelson Rule:** Any of the 8 rules being triggered indicates an out-of-control process that requires investigation. Common rules include **Rule 1** (1_3s), **Rule 2** (9 points on same side of mean), and **Rule 3** (6 points in a row steadily increasing or decreasing).""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Nelson Rules (1984) and Westgard Rules (1980s) adapt Shewhart charts to increase sensitivity to non-random patterns based on the combinatorial probability of points falling in different sigma zones of a normal distribution.""")
-st.divider()
+elif "Process Stability" in method_key:
+    st.markdown("**Objective:** To demonstrate that the assay can be run in a stable and predictable manner at the receiving site, monitoring both accuracy (mean) and precision (variability).")
+    col1, col2 = st.columns([0.7, 0.3]);
+    with col1: st.plotly_chart(plot_shewhart(), use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.markdown("- **I-Chart:** Monitors the process center (accuracy)."); st.markdown("- **MR-Chart:** Monitors run-to-run variability (precision).")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- Process is stable when **at least 20-25 consecutive points on both charts show no out-of-control signals**.")
 
-# --- 9. Process Capability ---
-st.header("9. Process Capability (Cpk Analysis)")
-st.markdown("""**Objective:** To determine if the process, once proven stable, is capable of consistently producing results that meet the required specifications. This is often the final gate of a successful assay transfer, linking statistical process control to engineering tolerances.""")
-cpk_target_slider = st.slider("Simulate a process with a desired Cpk target:", 0.5, 2.0, 1.33, 0.01)
-st.pyplot(plot_capability(cpk_target_slider))
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **Specification Limits (LSL/USL):** These are the non-negotiable engineering or quality requirements (the "voice of the customer"). They are **not** the same as control limits.
-- **Process Spread:** The natural, inherent variation of the process (the "voice of the process"), typically measured as a 6-sigma spread.
-- **Cpk (Process Capability Index):** This index measures how well the process is centered within the specification limits and how wide the process spread is relative to the specification width.
-- **Acceptance Rules:**
-    - `**Cpk >= 1.33**`: Process is considered **capable**. This is a common minimum target, corresponding to a "4-sigma" process.
-    - `**Cpk >= 1.67**`: Process is considered **highly capable** (a common Six Sigma target).
-    - `**Cpk < 1.0**`: Process is **not capable** of meeting specifications. A significant portion of results will be out-of-spec.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Developed in manufacturing as part of Six Sigma and Total Quality Management (TQM) initiatives.
-    **Mathematical Basis:** Cpk measures the distance to the *nearest* specification limit in units of 3-sigma.
-    $$ C_{pk} = \min \left( C_{pu}, C_{pl} \right) = \min \left( \frac{USL - \bar{x}}{3\hat{\sigma}}, \frac{\bar{x} - LSL}{3\hat{\sigma}} \right) $$""")
-st.divider()
+elif "Small Shift Detection" in method_key:
+    st.markdown("**Objective:** To implement sensitive charts that can detect small, systematic drifts or shifts in assay performance that a Shewhart chart might miss.")
+    chart_type = st.sidebar.radio("Select Chart Type:", ('EWMA', 'CUSUM')); col1, col2 = st.columns([0.7, 0.3])
+    with col1:
+        if chart_type == 'EWMA': lmbda = st.sidebar.slider("EWMA Lambda (λ)", 0.05, 1.0, 0.2, 0.05); st.plotly_chart(plot_ewma_cusum(chart_type, lmbda, 0, 0), use_container_width=True)
+        else: k_sigma = st.sidebar.slider("CUSUM Slack (k, in σ)", 0.25, 1.5, 0.5, 0.25); H_sigma = st.sidebar.slider("CUSUM Limit (H, in σ)", 2.0, 8.0, 5.0, 0.5); st.plotly_chart(plot_ewma_cusum(chart_type, 0, k_sigma, H_sigma), use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.markdown("- **EWMA:** Best for detecting small *drifts*. **Rule:** Use a small `λ` (0.1-0.3) for monitoring."); st.markdown("- **CUSUM:** Best for detecting small, *abrupt and sustained* shifts. **Rule:** Set `k` to half the magnitude of the shift to detect.")
 
-# --- 10. Anomaly Detection ---
-st.header("10. Advanced Anomaly Detection (ML)")
-st.markdown("""**Objective:** To leverage machine learning to detect complex, multivariate anomalies that traditional univariate control charts would miss. This moves from monitoring single parameters to monitoring the holistic "health" of an assay run.""")
-st.pyplot(plot_anomaly_detection())
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **The Problem:** An assay run might have all its individual parameters (e.g., temperature, incubation time, peak height, peak width) within their individual control limits, yet their *combination* is highly unusual and indicative of a problem.
-- **The Solution:** An Isolation Forest learns the "shape" of normal operating conditions across many features simultaneously. It then flags any new data point that doesn't fit this multi-dimensional shape.
-- **Rule:** This is an exploratory and monitoring tool. There is no hard "acceptance rule". Instead, any data point flagged as an anomaly **must be investigated** by Subject Matter Experts (SMEs) to determine the root cause. This investigation feeds back into process understanding and improvement.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Proposed by Liu, Ting, and Zhou in 2008. An unsupervised learning algorithm based on the principle that anomalies are "few and different" and thus easier to isolate than normal points.
-    **Mathematical Basis:** The algorithm builds an ensemble of random "isolation trees." The anomaly score $ s(x, n) = 2^{-\frac{E(h(x))}{c(n)}} $ is based on the average path length $E(h(x))$ required to isolate a point in the trees. Anomalies have shorter path lengths, resulting in scores closer to 1.""")
-st.divider()
+elif "Run Validation" in method_key:
+    st.markdown("**Objective:** To create an objective, statistically-driven system for accepting or rejecting each analytical run based on QC sample performance.")
+    st.plotly_chart(plot_multi_rule("Westgard"), use_container_width=True)
+    st.subheader("Standard Industry Rule Sets")
+    tab1, tab2, tab3 = st.tabs(["✅ Westgard Rules", "✅ Nelson Rules", "✅ Western Electric Rules"])
+    with tab1:
+        st.markdown("""Developed for lab QC, vital for CLIA, CAP, ISO 15189 compliance. A run is rejected if a "Rejection Rule" is violated.
+| Rule | Use Case | Interpretation |
+|---|---|---|
+| **1_2s** | Warning Rule | One control measurement exceeds ±2σ. Triggers inspection. |
+| **1_3s** | Rejection Rule | One control measurement exceeds ±3σ. |
+| **2_2s** | Rejection Rule | Two consecutive measurements exceed the same +2σ or -2σ limit. |
+| **R_4s** | Rejection Rule | One measurement > +2σ and the next > -2σ (or vice-versa). |
+| **4_1s** | Rejection Rule | Four consecutive measurements exceed the same +1σ or -1σ limit. |
+| **10x** | Rejection Rule | Ten consecutive measurements fall on the same side of the mean. |""")
+    with tab2:
+        st.markdown("""Excellent for catching non-random patterns in manufacturing and general SPC.
+| Rule | What It Flags |
+|---|---|
+| 1. One point > 3σ | Sudden shift or outlier |
+| 2. 9 points on same side of mean | Mean shift |
+| 3. 6 points increasing or decreasing | Trend |
+| 4. 14 points alternating up/down | Systematic oscillation |
+| 5. 2 of 3 > 2σ (same side) | Moderate shift |
+| 6. 4 of 5 > 1σ (same side) | Small persistent shift |""")
+    with tab3:
+        st.markdown("""Foundational rules from which many other systems were derived.
+| Rule | Interpretation |
+|---|---|
+| **Rule 1** | One point falls outside the ±3σ limits. |
+| **Rule 2** | Two out of three consecutive points fall beyond the ±2σ limit on the same side. |
+| **Rule 3** | Four out of five consecutive points fall beyond the ±1σ limit on the same side. |
+| **Rule 4** | Eight consecutive points fall on the same side of the mean. |""")
 
-# --- 11. Predictive QC ---
-st.header("11. Predictive Quality Control (ML)")
-st.markdown("""**Objective:** To move from *reactive* quality control (detecting a failure after it happens) to *proactive* failure prevention. This model uses in-process parameters to predict the probability of a run failing before it is even completed.""")
-st.pyplot(plot_predictive_qc())
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **Application:** Before committing expensive, single-use reagents and significant operator time, the system can input the current parameters (e.g., reagent age from a LIMS, instrument warmup time, ambient temperature) and get a real-time risk score for the run's success.
-- **Decision Boundary:** The plot shows the model's learned boundary between "likely to pass" and "likely to fail" regions. The color gradient shows the risk level.
-- **Rule:** A risk threshold is established based on the model and business needs. For example: "If the predicted probability of failure is **> 20%**, the system will flag the run for mandatory operator review before proceeding." This threshold is a balance between preventing failures and creating too many nuisance alarms.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Logistic regression is a statistical model developed by statistician David Cox in 1958. It's a foundational algorithm for binary classification problems.
-    **Mathematical Basis:** It models the probability of a binary outcome by passing a linear combination of inputs through the sigmoid (logistic) function: $$ P(y=1|x) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + ...)}} $$ The model finds the coefficients ($\beta$) that best separate the two classes.""")
-st.divider()
+elif "Process Capability" in method_key:
+    st.markdown("**Objective:** To determine if the stable process is capable of consistently producing results that meet specifications, linking SPC to engineering tolerances.")
+    cpk_target_slider = st.sidebar.slider("Simulate a process with a desired Cpk target:", 0.5, 2.0, 1.33, 0.01)
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: fig, cpk_val = plot_capability(cpk_target_slider); st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.metric(label="Calculated Cpk", value=f"{cpk_val:.2f}")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- `Cpk ≥ 1.33`: Process is **capable**."); st.markdown("- `Cpk ≥ 1.67`: Process is **highly capable**."); st.markdown("- `Cpk < 1.0`: Process is **not capable**.")
 
-# --- 12. Forecasting ---
-st.header("12. Control Forecasting (Time Series AI)")
-st.markdown("""**Objective:** To forecast the future performance of assay controls to anticipate problems and enable proactive management of maintenance and reagent lots.""")
-fig1_fc, fig2_fc = plot_forecasting()
-st.pyplot(fig1_fc); st.pyplot(fig2_fc)
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **Forecast Plot (top):** Shows the expected future path of the control value, along with an uncertainty interval (the light blue band).
-- **Components Plot (bottom):** Decomposes the forecast into its building blocks: the overall trend and any seasonal patterns. This is crucial for root cause analysis (e.g., "Is performance degrading overall, or is there just a weekly cycle?").
-- **Rule:** A "proactive alert" can be triggered if the **lower bound of the 80% forecast interval (yhat_lower) is predicted to cross a specification limit** within the defined forecast horizon (e.g., 4 weeks). This prompts proactive action before any out-of-spec event occurs.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Prophet is an open-source forecasting procedure developed by Facebook's Core Data Science team, designed to be robust for business-style time series.
-    **Mathematical Basis:** It's a decomposable time series model: $ y(t) = g(t) + s(t) + h(t) + \epsilon_t $, where $g(t)$ is a piecewise linear or logistic growth trend, $s(t)$ is seasonality modeled with Fourier series, and $h(t)$ is a term for holidays/events. It is fit within a Bayesian framework to provide uncertainty intervals.""")
-st.divider()
+elif "Anomaly Detection" in method_key:
+    st.markdown("**Objective:** To leverage machine learning to detect complex, multivariate anomalies that traditional univariate control charts would miss.")
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: st.plotly_chart(plot_anomaly_detection(), use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.markdown("- **Identifies** points that are anomalous in multi-dimensional space."); st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- Any point flagged as an **anomaly must be investigated** by SMEs to determine root cause.")
 
-# --- 13. Wilson Score ---
-st.header("13. Pass/Fail Assay Analysis (Wilson Score)")
-st.markdown("""**Objective:** To accurately calculate a confidence interval for a proportion, which is essential for validating qualitative or semi-quantitative assays (e.g., limit tests, presence/absence assays) where the outcome is pass/fail.""")
-n_samples_wilson = st.slider("Number of Validation Samples (n)", 1, 100, 30, key='wilson_n')
-successes_wilson = st.slider("Concordant Results (Successes)", 0, n_samples_wilson, int(n_samples_wilson * 0.95), key='wilson_s')
-st.pyplot(plot_wilson(successes_wilson, n_samples_wilson))
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **The Challenge:** The standard "Wald" interval taught in many intro courses is notoriously unreliable for small sample sizes or when the observed proportion is near 0 or 1. It can even produce impossible results (e.g., a confidence interval from -0.1 to 0.3).
-- **The Solution:** The **Wilson Score** and **Clopper-Pearson** intervals provide robust and reliable confidence intervals for the true concordance rate in all situations.
-- **Acceptance Rule:** A common criterion for assay validation is: "The **lower bound of the 95% Wilson Score (or Clopper-Pearson) confidence interval must be greater than or equal to the target concordance rate** (e.g., 90%)." The Wald interval should not be used.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** The Wilson Score (1927) and Clopper-Pearson (1934) intervals were developed to provide much better performance than the standard Wald interval.
-    **Mathematical Basis:** Let $\hat{p}=k/n$ and $z$ be the z-score.
-    - **Wald:** $ \hat{p} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n}} $
-    - **Wilson Score:** $ \frac{1}{1 + z^2/n} \left( \hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}} \right) $""")
-st.divider()
+elif "Predictive QC" in method_key:
+    st.markdown("**Objective:** To move from reactive to proactive quality control by predicting run failure based on in-process parameters *before* the run is completed.")
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: st.plotly_chart(plot_predictive_qc(), use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.markdown("- **Predicts** the probability of a run failing based on initial parameters."); st.markdown("- **Decision Boundary** shows the learned 'risk zones'.")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- A risk threshold is set, e.g., 'If **P(Fail) > 20%**, flag run for operator review.'")
 
-# --- 14. Bayesian Inference ---
-st.header("14. Leveraging Historical Data (Bayesian)")
-st.markdown("""**Objective:** To formally combine historical data from a sending lab (the "Prior" belief) with new, limited data from a receiving lab (the "Likelihood") to arrive at a more informed and robust conclusion (the "Posterior" belief).""")
-prior_type_bayes = st.radio("Select Prior Belief:", ("Strong R&D Prior", "No Prior (Frequentist)", "Skeptical/Regulatory Prior"), horizontal=True, key='bayes_prior')
-st.pyplot(plot_bayesian(prior_type_bayes))
-with st.expander("Interpretation & Acceptance Criteria"):
-    st.markdown("""- **Prior Belief:** The green dashed line represents our knowledge before the experiment. A "Strong R&D Prior" is narrow and confident, while a "Skeptical Prior" is broad and uncertain.
-- **Posterior Belief:** The solid blue line is our updated knowledge after seeing the QC lab's data. It is a weighted compromise between the prior and the new data.
-- **Credible Interval:** The shaded blue area represents the range where there is a 95% probability that the true parameter lies.
-- **Acceptance Rule:** A Bayesian approach might specify: "The **95% credible interval for the concordance rate must be entirely above 90%**." The advantage is that a strong, justifiable prior can help meet this criterion with fewer new experimental runs.""")
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Based on Bayes' Theorem (18th century), but made practical by modern computational methods.
-    **Mathematical Basis:** $ \text{Posterior} \propto \text{Likelihood} \times \text{Prior} $. For binomial data, we use the Beta-Binomial conjugate model: if Prior is Beta($\alpha, \beta$) and Data is $k$ successes in $n$ trials, then the Posterior is Beta($\alpha + k, \beta + n - k$).""")
-st.divider()
+elif "Control Forecasting" in method_key:
+    st.markdown("**Objective:** To forecast the future performance of assay controls to anticipate problems and enable proactive management of maintenance and reagent lots.")
+    fig1_fc, fig2_fc = plot_forecasting()
+    st.plotly_chart(fig1_fc, use_container_width=True)
+    with st.expander("Interpretation & Component Analysis"):
+        st.markdown("""- **Forecast Plot:** Shows the expected future path (blue line) and uncertainty interval (light blue band) of the control.
+        - **Components Plot:** Decomposes the forecast into its building blocks: the overall trend and any seasonal patterns. This is crucial for root cause analysis (e.g., "Is performance degrading overall, or is there just a weekly cycle?").
+        - **Rule:** A "proactive alert" can be triggered if the **lower bound of the 80% forecast interval is predicted to cross a specification limit** within the forecast horizon.""")
+        st.plotly_chart(fig2_fc, use_container_width=True)
 
-# --- 15. Confidence Interval Concept ---
-st.header("15. The Concept of Confidence Intervals")
-st.markdown("""**Objective:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals, which underpin many of the statistical tests used in validation.""")
-st.pyplot(plot_ci_concept())
-with st.expander("Interpretation & The Golden Rule"):
-    st.markdown("""- **What this simulation shows:** We take 100 different random samples from the same population and calculate a 95% confidence interval for each one (the horizontal lines). The true population mean is the vertical dashed line.
-- **The Golden Rule of Interpretation:** A 95% confidence interval means that **95% of the calculated intervals (the blue lines) successfully "capture" the true population mean**. The other 5% (the red lines) miss it purely due to random sampling luck. **The confidence is in the procedure, not in any single interval.** It is incorrect to say a single interval has a "95% chance of containing the true mean." """)
-with st.expander("Method Theory & Mathematical Basis"):
-    st.markdown("""**Origin:** Introduced by Jerzy Neyman in the 1930s.
-    **Mathematical Basis:** The general form is $ \text{CI} = \text{Point Estimate} \pm (\text{Critical Value}) \times (\text{Standard Error}) $. For the mean with an unknown population standard deviation (the most common case), this becomes:
-    $$ \text{CI} = \bar{x} \pm t_{\alpha/2, n-1} \frac{s}{\sqrt{n}} $$
-    where $\bar{x}$ is the sample mean, $s$ is the sample standard deviation, $n$ is the sample size, and $t$ is the critical value from the t-distribution.""")
+elif "Pass/Fail Analysis" in method_key:
+    st.markdown("**Objective:** To accurately calculate a confidence interval for a proportion, essential for validating qualitative assays (e.g., presence/absence).")
+    n_samples_wilson = st.sidebar.slider("Number of Validation Samples (n)", 1, 100, 30); successes_wilson = st.sidebar.slider("Concordant Results", 0, n_samples_wilson, int(n_samples_wilson * 0.95))
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: st.plotly_chart(plot_wilson(successes_wilson, n_samples_wilson), use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.metric(label="Observed Rate", value=f"{(successes_wilson/n_samples_wilson if n_samples_wilson > 0 else 0):.2%}")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- **The lower bound of the 95% Wilson Score CI must be ≥ the target concordance rate** (e.g., 90%).")
+
+elif "Bayesian Inference" in method_key:
+    st.markdown("**Objective:** To formally combine historical data (the 'Prior') with new data (the 'Likelihood') to arrive at a more robust conclusion (the 'Posterior').")
+    prior_type_bayes = st.sidebar.radio("Select Prior Belief:", ("Strong R&D Prior", "No Prior (Frequentist)", "Skeptical/Regulatory Prior"))
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: st.plotly_chart(plot_bayesian(prior_type_bayes), use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("Key Insights & Acceptance"); st.markdown("- **Posterior** (blue line) is the updated belief."); st.markdown("- **Strong Priors** require more data to be swayed.")
+            st.markdown("---"); st.markdown("##### Acceptance Rules:"); st.markdown("- The **95% credible interval must be entirely above the target** (e.g., 90%).")
+
+elif "Confidence Interval Concept" in method_key:
+    st.markdown("**Objective:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals, which underpin many statistical tests.")
+    col1, col2 = st.columns([0.7, 0.3])
+    with col1: fig, capture_count, n_sims = plot_ci_concept(); st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        with st.container(border=True):
+            st.subheader("The Golden Rule"); st.metric(label="Capture Rate in Simulation", value=f"{(capture_count/n_sims):.0%}")
+            st.markdown("A **95% confidence interval** means that if we were to repeat our experiment many times, **95% of the calculated intervals would contain the true, unknown parameter**. The confidence is in the *procedure*, not in any single interval.")
