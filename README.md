@@ -26,7 +26,7 @@ This application was engineered to a world-class standard, focusing on a superio
     *   **Detailed Theory:** A "Method Theory" tab for each method provides the origin, purpose, and mathematical basis for those who want to go deeper.
 *   **100% Python, No System Dependencies:** The application is built with a robust, pure-Python stack, ensuring it runs anywhere without complex system-level installations.
 *
-*  The Scientist's Journey: A Three-Act Story
+## 🚀  The Scientist's Journey: A Three-Act Story
 The toolkit is structured as a narrative to provide a logical workflow for a typical assay transfer and lifecycle management project.
 Act I: Know Thyself (The Foundation)
 Before you can control a process, you must understand your tools. This act covers the foundational characterization and validation steps.
