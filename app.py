@@ -1290,7 +1290,7 @@ def plot_ci_concept(n=30):
 # ==============================================================================
 # MAIN APP LAYOUT
 # ==============================================================================
-st.title("🔬 An Interactive Guide to Biotech Technology Transfer: Statistics, and Machine Learning Applications")
+st.title("🔬 An Interactive Guide to Technology Transfer Using Statistics, and ML Tools")
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that support a robust assay transfer and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 
 st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
