@@ -796,10 +796,86 @@ def plot_anomaly_detection():
 
 
 def plot_predictive_qc():
-    np.random.seed(1); n_points = 150; X1 = np.random.normal(5, 2, n_points); X2 = np.random.normal(25, 3, n_points); logit_p = -15 + 1.5 * X1 + 0.5 * X2 + np.random.normal(0, 2, n_points); p = 1 / (1 + np.exp(-logit_p)); y = np.random.binomial(1, p); X = np.vstack([X1, X2]).T; model = LogisticRegression().fit(X, y); xx, yy = np.meshgrid(np.linspace(X[:,0].min()-1, X[:,0].max()+1, 200), np.linspace(X[:,1].min()-1, X[:,1].max()+1, 200)); Z = model.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1].reshape(xx.shape)
-    fig = go.Figure(); fig.add_trace(go.Contour(x=xx[0], y=yy[:,0], z=Z, colorscale='RdYlGn_r', showscale=True, name='P(Fail)')); df_plot = pd.DataFrame({'X1': X[:,0], 'X2': X[:,1], 'Outcome': ['Pass' if i==0 else 'Fail' for i in y]}); fig_scatter = px.scatter(df_plot, x='X1', y='X2', color='Outcome', color_discrete_map={'Pass':'green', 'Fail':'red'});
-    for trace in fig_scatter.data: fig.add_trace(trace)
-    fig.update_layout(title_text='Predictive QC: Predicting Run Failure', xaxis_title='Reagent Age (days)', yaxis_title='Incubation Temp (°C)', height=600); return fig
+    # --- Data Generation ---
+    np.random.seed(1)
+    n_points = 150
+    X1 = np.random.normal(5, 2, n_points) # Reagent Age (days)
+    X2 = np.random.normal(25, 3, n_points) # Incubation Temp (C)
+    # Create a linear combination that predicts failure
+    logit_p = -15 + 1.5 * X1 + 0.5 * X2 + np.random.normal(0, 2, n_points)
+    p = 1 / (1 + np.exp(-logit_p))
+    y = np.random.binomial(1, p)
+    X = np.vstack([X1, X2]).T
+    
+    # --- Model Training and Prediction ---
+    model = LogisticRegression().fit(X, y)
+    probabilities = model.predict_proba(X)[:, 1]
+    
+    # --- Figure Creation (Multi-plot Dashboard) ---
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=("<b>Decision Boundary Risk Map</b>", "<b>Model Performance: Probability Distributions</b>"),
+        column_widths=[0.6, 0.4]
+    )
+
+    # --- Plot 1: Decision Boundary Risk Map ---
+    # Create grid for contour plot
+    xx, yy = np.meshgrid(
+        np.linspace(X[:,0].min()-1, X[:,0].max()+1, 200),
+        np.linspace(X[:,1].min()-1, X[:,1].max()+1, 200)
+    )
+    Z = model.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1].reshape(xx.shape)
+    
+    # Add contour trace
+    fig.add_trace(go.Contour(
+        x=xx[0], y=yy[:,0], z=Z,
+        colorscale='RdYlGn_r',
+        colorbar=dict(title="P(Fail)"),
+        showscale=True,
+        hoverinfo='none'
+    ), row=1, col=1)
+    
+    # Add scatter plot of actual data
+    df_plot = pd.DataFrame(X, columns=['Reagent Age', 'Incubation Temp'])
+    df_plot['Outcome'] = ['Pass' if i == 0 else 'Fail' for i in y]
+    df_plot['P(Fail)'] = probabilities
+    
+    fig_scatter = px.scatter(
+        df_plot, x='Reagent Age', y='Incubation Temp', color='Outcome',
+        color_discrete_map={'Pass':'green', 'Fail':'red'},
+        symbol='Outcome', symbol_map={'Pass': 'circle', 'Fail': 'x'},
+        custom_data=['P(Fail)']
+    )
+    for trace in fig_scatter.data:
+        trace.update(hovertemplate="<b>%{customdata[0]:.1%} P(Fail)</b><br>Age: %{x:.1f} days<br>Temp: %{y:.1f}°C<extra></extra>")
+        fig.add_trace(trace, row=1, col=1)
+
+    # --- Plot 2: Probability Distributions ---
+    fig.add_trace(go.Histogram(
+        x=df_plot[df_plot['Outcome'] == 'Pass']['P(Fail)'],
+        name='Actual Pass', histnorm='probability density',
+        marker_color='green', opacity=0.7
+    ), row=1, col=2)
+    fig.add_trace(go.Histogram(
+        x=df_plot[df_plot['Outcome'] == 'Fail']['P(Fail)'],
+        name='Actual Fail', histnorm='probability density',
+        marker_color='red', opacity=0.7
+    ), row=1, col=2)
+    
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>Predictive QC Dashboard: Identifying At-Risk Runs</b>',
+        height=600,
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        barmode='overlay',
+        title_x=0.5
+    )
+    fig.update_xaxes(title_text="Reagent Age (days)", row=1, col=1)
+    fig.update_yaxes(title_text="Incubation Temp (°C)", row=1, col=1)
+    fig.update_xaxes(title_text="Predicted Probability of Failure", row=1, col=2)
+    fig.update_yaxes(title_text="Density", row=1, col=2)
+    
+    return fig
 
 def plot_forecasting():
     np.random.seed(42); dates = pd.to_datetime(pd.date_range(start='2022-01-01', periods=104, freq='W')); trend = np.linspace(0, 5, 104); seasonality = 1.5 * np.sin(np.arange(104) * (2 * np.pi / 52.14)); noise = np.random.normal(0, 0.5, 104); y = 50 + trend + seasonality + noise; df = pd.DataFrame({'ds': dates, 'y': y}); model = Prophet(weekly_seasonality=False, daily_seasonality=False); model.fit(df); future = model.make_future_dataframe(periods=26, freq='W'); forecast = model.predict(future)
@@ -1245,21 +1321,34 @@ elif "Anomaly Detection (ML)" in method_key:
             st.markdown("**Mathematical Basis:** It is based on the principle that anomalies are 'few and different' and thus easier to isolate in a random tree structure. The model's anomaly score is based on the average path length required to isolate a data point.")
             st.latex(r"s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}")
 
-elif "Predictive QC" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To move from reactive to proactive quality control by predicting run failure based on in-process parameters *before* the run is completed. **Application:** A real-time decision support tool for lab operators.")
+elif "Predictive QC (ML)" in method_key:
+    st.markdown("""
+    **Purpose:** To move from *reactive* quality control (detecting a failure after it happens) to *proactive* failure prevention.
+    
+    **Definition:** A predictive QC model is a machine learning classifier (like Logistic Regression) that learns the relationship between in-process parameters and the final outcome of a run (Pass/Fail).
+    
+    **Application:** This is the Hero's crystal ball. Before committing expensive reagents and valuable time, the model can look at the starting conditions of a run (e.g., reagent age, instrument warmup time) and predict its likelihood of success. A high probability of failure can trigger an alert, empowering the operator to take corrective action *before* the run is wasted. This directly reduces waste and improves right-first-time rates.
+    """)
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: st.plotly_chart(plot_predictive_qc(), use_container_width=True)
+    with col1:
+        fig = plot_predictive_qc()
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Predictive Risk Profiling", value="Enabled"); st.markdown("- This model predicts the probability of a run failing based on its initial parameters."); st.markdown("- The color gradient shows the learned 'risk zones'.")
-            st.markdown("**The Bottom Line:** This is the ultimate defense against the Villain of wasted resources. It stops bad runs before they even start.")
+            st.metric(label="📈 KPI: Predictive Risk Profiling", value="Enabled")
+            st.markdown("- **Decision Boundary Plot (left):** This is the model's 'risk map.' The color gradient shows the predicted probability of failure, from low (green) to high (red). The overlaid points show how well the model classified the historical data.")
+            st.markdown("- **Probability Distribution Plot (right):** This is the model's report card. It shows the predicted failure probabilities for runs that actually passed (green distribution) versus runs that actually failed (red distribution).")
+            st.markdown("- **The 'Holy Shit' Moment:** A great model shows a clear separation between the green and red distributions. This proves that the model has learned the hidden patterns that lead to failure and can reliably distinguish a good run from a bad one before it's too late.")
+            st.markdown("**The Bottom Line:** This tool transforms quality control from a pass/fail-at-the-end activity to an in-process, risk-based decision-making tool.")
         with tab2:
-            st.markdown("- A risk threshold is set, e.g., 'If **P(Fail) > 20%**, flag run for operator review.'")
+            st.markdown("- A risk threshold is established based on the model and business needs. For example, 'If the model's predicted **Probability of Failure is > 20%**, flag the run for mandatory operator review before proceeding.'")
+            st.markdown("- The model's performance (e.g., accuracy, sensitivity) must be formally validated and documented before use in a regulated environment.")
         with tab3:
-            st.markdown("**Origin:** Logistic regression was developed by David Cox in 1958."); st.markdown("**Mathematical Basis:** Models binary outcome probability using the sigmoid function: $ P(y=1|x) = 1 / (1 + e^{-(\\beta_0 + \\beta_1 x_1 + ...)}) $.")
+            st.markdown("**Origin:** Logistic regression is a statistical model developed by statistician David Cox in 1958. It is a foundational and highly interpretable algorithm for binary classification problems.")
+            st.markdown("**Mathematical Basis:** It models the probability of a binary outcome (y=1) by passing a linear combination of input features ($x$) through the sigmoid (logistic) function:")
+            st.latex(r"P(y=1|x) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + ...)}}")
 
 elif "Control Forecasting" in method_key:
     # ... (Content for this method)
