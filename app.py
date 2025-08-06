@@ -1337,7 +1337,7 @@ st.header(method_key)
 # --- Dynamic Content Display ---
 # All 15 elif blocks follow, each with the full, detailed content and professional layout.
 
-if "Gage R&R" in method_key:
+elif "Gage R&R" in method_key:
     st.markdown("""
     **Purpose:** To quantify the inherent variability (error) of the measurement system itself, separating it from the actual process variation. 
     
@@ -1355,18 +1355,46 @@ if "Gage R&R" in method_key:
         with tab1:
             st.metric(label="📈 KPI: % Gage R&R", value=f"{pct_rr:.1f}%", delta="Lower is better", delta_color="inverse")
             st.metric(label="💡 KPI: % Part Variation", value=f"{pct_part:.1f}%", delta="Higher is better")
-            st.markdown("- **Run Chart by Part:** Look for consistency. Are the measurements for each part tightly clustered? A wide spread indicates poor repeatability.")
-            st.markdown("- **Variation by Operator:** Look for alignment. Do the boxes for each operator overlap significantly? If one operator's box is much higher or lower, it indicates a reproducibility problem (bias).")
-            st.markdown("**The Bottom Line:** A low % Gage R&R (<10%) proves that your measurement system is a reliable 'ruler' and that most of the variation you see in your process is real, not just measurement noise.")
+            st.markdown("- **Repeatability:** Inherent precision of the instrument/assay.")
+            st.markdown("- **Reproducibility:** Variation between different operators.")
+            st.markdown("**The Bottom Line:** A low % Gage R&R (<10%) proves that your measurement system is a reliable 'ruler' and that most of the variation you see in your process is real process variation, not measurement noise.")
         with tab2:
             st.markdown("Based on AIAG (Automotive Industry Action Group) guidelines:")
             st.markdown("- **< 10%:** System is **acceptable**.")
             st.markdown("- **10% - 30%:** **Conditionally acceptable**, depending on the importance of the application and cost of improvement.")
             st.markdown("- **> 30%:** System is **unacceptable** and requires improvement.")
         with tab3:
-            st.markdown("**Origin:** Formalized by the AIAG. ANOVA is the preferred method.")
-            st.markdown("**Mathematical Basis:** ANOVA partitions total variance ($SS_T$) into components: $SS_T = SS_{Part} + SS_{Operator} + ...$. From this, we derive variance components for repeatability ($\hat{\sigma}^2_{EV}$) and reproducibility ($\hat{\sigma}^2_{AV}$) to calculate:")
-            st.latex(r"\%R\&R = 100 \times \left( \frac{\hat{\sigma}_{R\&R}}{\hat{\sigma}_{Total}} \right)")
+            st.markdown("""
+            #### Origin and Development
+
+            The concepts of Repeatability and Reproducibility have been a cornerstone of measurement science for over a century, but they were formally codified and popularized by the **Automotive Industry Action Group (AIAG)** in the 1980s. As part of the major quality revolution in the US auto industry, the AIAG created the Measurement Systems Analysis (MSA) manual, which established the Gage R&R study as a global standard for assessing the quality of a measurement system.
+
+            The earliest methods for calculating Gage R&R were simple range-based calculations. However, these methods had a critical flaw: they could not separate the variation due to operator-part interaction from the variation due to the operators themselves.
+
+            To solve this, the industry adopted **Analysis of Variance (ANOVA)** as the preferred method for Gage R&R studies. ANOVA, a technique pioneered by Sir Ronald A. Fisher, is a powerful statistical tool that can rigorously partition the total variation into its distinct sources: parts, operators, operator-part interaction, and the measurement equipment itself. This allows for a much more precise and insightful analysis of the measurement system's performance.
+
+            ---
+            
+            #### Mathematical Basis
+
+            The ANOVA method for Gage R&R is based on partitioning the total sum of squares ($SS_T$) into components attributable to each source of variation:
+            """)
+            st.latex(r"SS_T = SS_{Part} + SS_{Operator} + SS_{Interaction} + SS_{Error}")
+            st.markdown("""
+            From the Mean Squares (MS = SS/df) in the ANOVA table, we can estimate the variance components for each source:
+            - **Repeatability (Equipment Variation, EV):** This is the inherent, random error of the measurement system itself, estimated directly from the Mean Square Error of the model.
+            """)
+            st.latex(r"\hat{\sigma}^2_{EV} = MS_{Error}")
+            st.markdown("- **Reproducibility (Appraiser Variation, AV):** This is the variation introduced by different operators. It includes the main effect of the operator and the operator-part interaction.")
+            st.latex(r"\hat{\sigma}^2_{AV} = \frac{MS_{Operator} - MS_{Interaction}}{n_{parts} \cdot n_{replicates}} + \frac{MS_{Interaction} - MS_{Error}}{n_{replicates}}")
+            st.markdown("""
+            The total **Gage R&R** variance is the sum of these two components:
+            """)
+            st.latex(r"\hat{\sigma}^2_{R\&R} = \hat{\sigma}^2_{EV} + \hat{\sigma}^2_{AV}")
+            st.markdown("""
+            The key KPI, **% Contribution**, is then calculated by comparing the Gage R&R variance to the total variation observed in the study:
+            """)
+            st.latex(r"\%R\&R = 100 \times \left( \frac{\hat{\sigma}^2_{R\&R}}{\hat{\sigma}^2_{Total}} \right)")
 
 elif "Linearity and Range" in method_key:
     st.markdown("""
@@ -1397,10 +1425,35 @@ elif "Linearity and Range" in method_key:
             st.markdown("- The **95% CI for the Intercept** should contain **0**.")
             st.markdown("- **Recovery** at each level should be within a pre-defined range (e.g., **80% to 120%**).")
         with tab3:
-            st.markdown("**Origin:** Based on Ordinary Least Squares (OLS) regression, a fundamental statistical method developed by Legendre and Gauss in the early 1800s.")
-            st.markdown("**Mathematical Basis:** We fit the model and test the hypotheses $H_0: \\beta_1 = 1$ and $H_0: \\beta_0 = 0$.")
+            st.markdown("""
+            #### Origin and Development
+
+            The mathematical foundation for this analysis is **Ordinary Least Squares (OLS) Regression**, a fundamental statistical method developed independently by Adrien-Marie Legendre (1805) and Carl Friedrich Gauss (1809). Gauss, working in the field of astronomy, developed the method to predict the orbits of celestial bodies from a limited number of observations. He was trying to find the "best fit" curve to describe the path of the dwarf planet Ceres.
+
+            The core principle of OLS is to find the line that minimizes the sum of the squared vertical distances (the "residuals") between the observed data points and the fitted line. This concept of minimizing squared error is one of the most powerful and widely used ideas in all of statistics and machine learning.
+
+            In the context of assay validation, we apply this centuries-old technique to answer a very modern question: "Does my instrument's response have a linear relationship with the true concentration of the substance I'm measuring?" It's a testament to the enduring power of the method that the same mathematics used to track planets is now used to validate life-saving medicines.
+
+            ---
+            
+            #### Mathematical Basis
+
+            We fit a simple linear model to the calibration data:
+            """)
             st.latex("y = \\beta_0 + \\beta_1 x + \\epsilon")
-            st.markdown("**Recovery:**")
+            st.markdown("""
+            - $y$ is the measured concentration (the response).
+            - $x$ is the nominal (true) concentration.
+            - $\\beta_0$ is the y-intercept, which represents the constant systematic bias of the assay (ideally 0).
+            - $\\beta_1$ is the slope, which represents the proportional bias of the assay (ideally 1).
+            - $\\epsilon$ is the random error term.
+
+            The analysis then involves statistical tests on the estimated coefficients:
+            - **Hypothesis Test for Slope:** $H_0: \\beta_1 = 1$ vs. $H_a: \\beta_1 \\neq 1$
+            - **Hypothesis Test for Intercept:** $H_0: \\beta_0 = 0$ vs. $H_a: \\beta_0 \\neq 0$
+
+            **Recovery** is a simple, direct measure of accuracy at each point:
+            """)
             st.latex(r"\%\,Recovery = \frac{\text{Measured Concentration}}{\text{Nominal Concentration}} \times 100")
 
 elif "LOD & LOQ" in method_key:
@@ -1750,12 +1803,19 @@ elif "Run Validation" in method_key:
 | **Rule 3** | Four out of five consecutive points fall beyond the ±1σ limit on the same side. |
 | **Rule 4** | Eight consecutive points fall on the same side of the mean. |""")
 
-elif "Process Capability" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To determine if the stable process is capable of consistently producing results that meet specifications. **Application:** This is often the final gate of a transfer, proving the new site can meet quality targets.")
+elif "Process Capability (Cpk)" in method_key:
+    st.markdown("""
+    **Purpose:** To determine if a stable process is capable of consistently producing results that meet the required specifications.
+    
+    **Definition:** Process Capability is a measure of the ability of a process to produce output within the specification limits. The Cpk index is a standard metric that quantifies this ability.
+    
+    **Application:** This is often the final, critical gate of a successful assay transfer. After our Hero has proven their assay is reliable (Act I) and stable in the new lab (Act II), they must now provide the ultimate proof: that the process can consistently defeat the Villain of Variation and deliver results that meet the non-negotiable quality targets. A high Cpk is the statistical equivalent of a "mission accomplished."
+    """)
     scenario = st.sidebar.radio("Select Process Scenario:", ('Ideal', 'Shifted', 'Variable', 'Out of Control'))
     col1, col2 = st.columns([0.65, 0.35])
-    with col1: fig, cpk_val, scn = plot_capability(scenario); st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig, cpk_val, scn = plot_capability(scenario)
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
@@ -1764,9 +1824,35 @@ elif "Process Capability" in method_key:
             st.markdown("- **The Mantra:** Control before Capability. Cpk is only meaningful for a stable, in-control process (see I-Chart in the plot).")
             st.markdown("- **The 'Holy Shit' Moment:** A process can be perfectly **in control but not capable** (the 'Shifted' and 'Variable' scenarios). The control chart looks fine, but the process is producing scrap. This is why you need both tools.")
         with tab2:
-            st.markdown("- `Cpk ≥ 1.33`: Process is **capable**."); st.markdown("- `Cpk ≥ 1.67`: Process is **highly capable**."); st.markdown("- `Cpk < 1.0`: Process is **not capable**.")
+            st.markdown("- `Cpk ≥ 1.33`: Process is considered **capable** (a common minimum target).")
+            st.markdown("- `Cpk ≥ 1.67`: Process is considered **highly capable** (a common Six Sigma target).")
+            st.markdown("- `Cpk < 1.0`: Process is **not capable** of meeting specifications.")
         with tab3:
-            st.markdown("**Origin:** Developed in manufacturing as part of Six Sigma."); st.markdown("**Mathematical Basis:** $ C_{pk} = \\min \\left( \\frac{USL - \\bar{x}}{3\\hat{\sigma}}, \\frac{\\bar{x} - LSL}{3\\hat{\sigma}} \\right) $.")
+            st.markdown("""
+            #### Origin and Development
+
+            The concept of process capability indices originated in the manufacturing industry, particularly in Japan in the 1970s, as part of the Total Quality Management (TQM) revolution. However, it was the rise of **Six Sigma** at Motorola in the 1980s that truly popularized Cpk and made it a global standard for quality.
+
+            The core idea of Six Sigma is to reduce process variation so that the nearest specification limit is at least six standard deviations away from the process mean. A Cpk of 2.0 corresponds to a true Six Sigma process.
+
+            The framework provides a simple, standardized language to communicate the performance of a process relative to its requirements (the "voice of the customer"). It answers the crucial business question: "Is our process good enough to meet our customers' needs?"
+
+            ---
+            
+            #### Mathematical Basis
+
+            Capability analysis compares the **"Voice of the Process"** (the actual spread of the data, typically defined as a 6σ spread) to the **"Voice of the Customer"** (the allowable spread defined by the specification limits).
+
+            - **Cp (Potential Capability):** Measures if the process is *narrow enough* to fit within the specification limits, but it does not account for centering.
+            """)
+            st.latex(r"C_p = \frac{USL - LSL}{6\hat{\sigma}}")
+            st.markdown("""
+            - **Cpk (Actual Capability):** This is the more important metric. It measures if the process is narrow enough *and* well-centered. It is the lesser of the upper and lower capability indices, effectively measuring the distance from the process mean to the *nearest* specification limit.
+            """)
+            st.latex(r"C_{pk} = \min(C_{pu}, C_{pl}) = \min \left( \frac{USL - \bar{x}}{3\hat{\sigma}}, \frac{\bar{x} - LSL}{3\hat{\sigma}} \right)")
+            st.markdown("""
+            A Cpk of 1.0 means the process 3σ spread exactly fits within half of the specification range, with the mean touching the nearest limit. A Cpk of 1.33 means there is a "buffer" equivalent to one standard deviation between the process edge and the nearest specification limit.
+            """)
 
 elif "Anomaly Detection (ML)" in method_key:
     st.markdown("""
@@ -1791,9 +1877,32 @@ elif "Anomaly Detection (ML)" in method_key:
             st.markdown("- This is an exploratory and monitoring tool. There is no hard 'pass/fail' rule during validation.")
             st.markdown("- The primary rule is that any point flagged as an **anomaly must be investigated** by Subject Matter Experts (SMEs) to determine the root cause and assess its impact on product quality.")
         with tab3:
-            st.markdown("**Origin:** The Isolation Forest algorithm was proposed by Fei Tony Liu, Kai Ming Ting, and Zhi-Hua Zhou in 2008.")
-            st.markdown("**Mathematical Basis:** It is based on the principle that anomalies are 'few and different' and thus easier to isolate in a random tree structure. The model's anomaly score is based on the average path length required to isolate a data point.")
+            st.markdown("""
+            #### Origin and Development
+
+            The **Isolation Forest** algorithm was proposed by Fei Tony Liu, Kai Ming Ting, and Zhi-Hua Zhou in a groundbreaking 2008 paper. It represented a fundamental shift in how to think about anomaly detection.
+
+            Previous methods were often "density-based" or "distance-based." They tried to define what a "normal" region looks like and then flagged anything that fell outside of it. This approach can be computationally expensive and struggles in high-dimensional spaces (the "curse of dimensionality").
+
+            The authors of Isolation Forest flipped the problem on its head. They started with a simple but powerful observation: **anomalies are "few and different."** Because they are different, they should be easier to *isolate* from the rest of the data points. Instead of trying to describe the dense crowd of normal points, they built a method that was explicitly designed to find the lonely outliers. This counter-intuitive approach proved to be both highly effective and computationally efficient, making it one of the most popular and powerful unsupervised anomaly detection algorithms in use today.
+
+            ---
+            
+            #### Mathematical Basis
+
+            The core idea is that if you randomly partition a dataset, anomalies will be isolated in fewer steps than normal points. The algorithm works as follows:
+            1.  An ensemble of "Isolation Trees" (iTrees) is built.
+            2.  To build an iTree, the data is recursively partitioned by randomly selecting a feature and then randomly selecting a split point between the min and max values of that feature.
+            3.  This continues until every point is isolated in its own leaf node. Anomalous points, being different, will require fewer partitions and will therefore have a much shorter average path length from the root to the leaf.
+            
+            The anomaly score $s(x, n)$ for an instance $x$ is derived from its average path length $E(h(x))$ across all the trees in the forest:
+            """)
             st.latex(r"s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}")
+            st.markdown("""
+            - Where $c(n)$ is a normalization factor based on the average path length in a Binary Search Tree.
+            - Scores close to 1 indicate a very short path length and are therefore flagged as **anomalies**.
+            - Scores much smaller than 0.5 indicate a long path length and are considered **normal**.
+            """)
 
 elif "Predictive QC (ML)" in method_key:
     st.markdown("""
@@ -1820,9 +1929,30 @@ elif "Predictive QC (ML)" in method_key:
             st.markdown("- A risk threshold is established based on the model and business needs. For example, 'If the model's predicted **Probability of Failure is > 20%**, flag the run for mandatory operator review before proceeding.'")
             st.markdown("- The model's performance (e.g., accuracy, sensitivity) must be formally validated and documented before use in a regulated environment.")
         with tab3:
-            st.markdown("**Origin:** Logistic regression is a statistical model developed by statistician David Cox in 1958. It is a foundational and highly interpretable algorithm for binary classification problems.")
-            st.markdown("**Mathematical Basis:** It models the probability of a binary outcome (y=1) by passing a linear combination of input features ($x$) through the sigmoid (logistic) function:")
-            st.latex(r"P(y=1|x) = \frac{1}{1 + e^{-(\beta_0 + \beta_1 x_1 + ...)}}")
+            st.markdown("""
+            #### Origin and Development
+
+            **Logistic regression** is a statistical model developed by the brilliant British statistician **Sir David Cox in 1958**. Its origins lie in the need to model the probability of a binary event (e.g., a patient surviving or not, a component failing or not) as a function of one or more predictor variables.
+
+            While linear regression predicts a continuous value that can go to positive or negative infinity, this doesn't make sense for probabilities, which must be constrained between 0 and 1. Cox's breakthrough was to use the **logistic function (or sigmoid function)** to "squash" the output of a linear equation into this [0, 1] range.
+
+            The method's power lies in its **interpretability**. Unlike more complex "black box" models, the coefficients of a fitted logistic regression model have a direct and understandable meaning: they represent the change in the log-odds of the outcome for a one-unit change in the predictor variable. This makes it a foundational and still widely used algorithm in medicine (for predicting disease risk), finance (for predicting loan default), and, as shown here, in industrial quality control.
+
+            ---
+            
+            #### Mathematical Basis
+
+            The model works in two steps:
+            1.  First, a linear combination of the input features ($x$) is created, identical to linear regression. This is often called the **log-odds** or **logit**.
+            """)
+            st.latex(r"z = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + ... + \beta_n x_n")
+            st.markdown("""
+            2.  Second, this result is passed through the sigmoid function, $\sigma(z)$, to transform the log-odds into a probability between 0 and 1.
+            """)
+            st.latex(r"P(y=1|x) = \sigma(z) = \frac{1}{1 + e^{-z}}")
+            st.markdown("""
+            The model is trained by finding the optimal coefficients ($\beta_0, \beta_1, ...$) that maximize the likelihood of observing the training data. The decision boundary visualized in the plot is the line (or surface) where the predicted probability is exactly 0.5 (i.e., where $z=0$).
+            """)
 
 elif "Control Forecasting (AI)" in method_key:
     st.markdown("""
@@ -1851,12 +1981,37 @@ elif "Control Forecasting (AI)" in method_key:
             st.markdown("- A **'Proactive Alert'** should be triggered if the lower or upper bound of the 80% forecast interval (`yhat_lower` or `yhat_upper`) is predicted to cross a specification limit within the defined forecast horizon (e.g., the next 4-6 weeks).")
             st.markdown("- Any automatically detected **changepoint** should be investigated and correlated with historical batch records or lab events to understand its root cause.")
         with tab3:
-            st.markdown("**Origin:** Prophet is an open-source forecasting procedure developed by Facebook's Core Data Science team, designed to be robust for business-style time series data.")
-            st.markdown("**Mathematical Basis:** It's a decomposable time series model that fits a curve using a combination of trend, seasonality, and holiday components.")
+            st.markdown("""
+            #### Origin and Development
+
+            **Prophet** is an open-source forecasting procedure developed and released by **Facebook's Core Data Science team in 2017**. It was created to address a common and difficult business problem: producing high-quality forecasts at scale, often with minimal manual effort from analysts.
+
+            Traditional forecasting methods like ARIMA or exponential smoothing are powerful but often require deep statistical knowledge, careful parameter tuning, and stationary data (data with a constant mean and variance). Business and scientific time series data, however, are rarely so well-behaved. They often have:
+            - Strong, multiple seasonalities (e.g., weekly, yearly)
+            - Shifting trends (e.g., a process slowly degrading)
+            - Missing data and outliers
+            - The effects of known, irregular events (e.g., holidays, maintenance shutdowns)
+
+            Prophet was designed from the ground up to handle these features automatically. It frames the forecasting problem as a curve-fitting exercise, making it intuitive for analysts to understand and tune. Its ability to automatically detect trend changepoints and model multiple seasonalities makes it an exceptionally robust and practical tool for real-world data, including the kind of control data generated in a lab.
+
+            ---
+            
+            #### Mathematical Basis
+
+            Prophet is a **decomposable time series model**, which means it models the time series as a combination of several distinct components:
+            """)
             st.latex(r"y(t) = g(t) + s(t) + h(t) + \epsilon_t")
-            st.markdown("- $g(t)$: Piecewise linear or logistic growth trend with automated changepoint detection.")
-            st.markdown("- $s(t)$: Seasonal patterns (e.g., yearly, weekly) modeled with Fourier series.")
-            st.markdown("- $h(t)$: Effects of known, potentially irregular events (holidays).")
+            st.markdown("""
+            - **$g(t)$ is the trend function.** Prophet models the trend using either a saturating logistic growth model or a simpler piecewise linear model. A key feature is its ability to automatically detect "changepoints"—points in time where the trend's growth rate changes significantly.
+
+            - **$s(t)$ is the seasonality function.** This component models periodic changes in the data (e.g., yearly patterns in assay performance due to ambient temperature changes). Prophet models seasonality using a flexible **Fourier series**, which allows it to fit complex seasonal patterns.
+
+            - **$h(t)$ is the holidays/events function.** This component models the effects of known, potentially irregular events with a specified window of influence (e.g., instrument maintenance, a known change in a reagent lot).
+
+            - **$\epsilon_t$ is the error term,** which is assumed to be normally distributed noise that is not captured by the other components.
+
+            The entire model is fit within a Bayesian framework, which allows Prophet to produce uncertainty intervals for the forecast and to incorporate prior beliefs about the parameters if desired.
+            """)
 
 elif "Pass/Fail Analysis" in method_key:
     st.markdown("""
@@ -1886,9 +2041,38 @@ elif "Pass/Fail Analysis" in method_key:
         with tab2:
             st.markdown("- A common acceptance criterion for assay validation is: **'The lower bound of the 95% Wilson Score (or Clopper-Pearson) confidence interval must be greater than or equal to the target concordance rate'** (e.g., 90%).")
         with tab3:
-            st.markdown("**Origin:** The Wilson Score (1927) and Clopper-Pearson (1934) intervals were developed to provide much better performance than the standard Wald interval, especially for small samples.")
-            st.markdown("**Mathematical Basis (Wilson):**")
+            st.markdown("""
+            #### Origin and Development
+
+            **The Flawed "Standard":** For many years, the most commonly taught method for calculating a confidence interval for a proportion was the **Wald interval**. It is based on a simple normal approximation to the binomial distribution. While easy to calculate, this method was known to have terrible performance, especially for small sample sizes or when the observed proportion was close to 0 or 1. It often produces intervals that are nonsensically narrow or that extend beyond the possible range of [0, 1].
+
+            **The Search for a Better Way:** Recognizing these flaws, statisticians developed more robust methods in the early 20th century.
+            - **Wilson Score Interval (1927):** Developed by American statistician Edwin Bidwell Wilson, this method is also based on a normal approximation, but it inverts the more robust "score test" rather than the Wald test. This seemingly small change has a dramatic effect on its performance. It produces reasonable intervals even in extreme cases and is now widely recommended as the best general-purpose interval for proportions.
+            - **Clopper-Pearson Interval (1934):** Developed by C.J. Clopper and E.S. Pearson, this is known as an "exact" method because it is based directly on the cumulative binomial distribution. It is constructed by inverting two one-sided binomial tests. The result is an interval that is guaranteed to have a coverage probability of *at least* the nominal level (e.g., 95%). While this guarantee is powerful, it often makes the interval overly conservative (i.e., wider than necessary).
+
+            ---
+            
+            #### Mathematical Basis
+
+            Let $\hat{p} = k/n$ be the observed proportion of $k$ successes in $n$ trials, and let $z$ be the Z-score for the desired confidence (e.g., 1.96 for 95%).
+            
+            - **Wald Interval:**
+            """)
+            st.latex(r"\hat{p} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n}}")
+            st.markdown("""
+            This simple formula is the source of its problems, as the standard error term approaches zero when $\hat{p}$ is near 0 or 1.
+            
+            - **Wilson Score Interval:** It is the solution to the quadratic equation that arises from inverting the score test, which leads to the more complex but far superior formula:
+            """)
             st.latex(r"\frac{1}{1 + z^2/n} \left( \hat{p} + \frac{z^2}{2n} \pm z \sqrt{\frac{\hat{p}(1-\hat{p})}{n} + \frac{z^2}{4n^2}} \right)")
+            st.markdown("""
+            Notice how it "shrinks" the observed proportion $\hat{p}$ towards 0.5 by adding the term $z^2/2n$. This is a form of regularization that improves its performance.
+
+            - **Clopper-Pearson (Exact) Interval:** It is defined using the Beta distribution, which is directly related to the cumulative binomial distribution.
+            - **Lower Bound:** $B(\alpha/2; k, n-k+1)$
+            - **Upper Bound:** $B(1-\alpha/2; k+1, n-k)$
+            Where $B$ is the quantile function (or inverse CDF) of the Beta distribution.
+            """)
             
 elif "Bayesian Inference" in method_key:
     st.markdown("""
@@ -1919,14 +2103,35 @@ elif "Bayesian Inference" in method_key:
             st.markdown("- The **95% credible interval must be entirely above the target** (e.g., 90%).")
             st.markdown("- This approach allows for demonstrating success with smaller sample sizes if a strong, justifiable prior is used.")
         with tab3:
-            st.markdown("**Origin:** Based on Bayes' Theorem (18th century), but made practical by modern computational methods.")
-            st.markdown("**Mathematical Basis:** The core idea is that the posterior is proportional to the product of the likelihood and the prior.")
-            st.latex(r"\text{Posterior} \propto \text{Likelihood} \times \text{Prior}")
-            st.markdown("For binomial data, we use the Beta-Binomial conjugate model: if the Prior is Beta($\\alpha, \\beta$) and we observe $k$ successes in $n$ trials, the Posterior is Beta($\\alpha + k, \\beta + n - k$).")
+            st.markdown("""
+            #### Origin and Development
+
+            The fundamental theorem that underpins all of Bayesian statistics was conceived by the **Reverend Thomas Bayes**, an English statistician and philosopher, in the 1740s. It was published posthumously in 1763. For nearly two centuries, however, Bayes' Theorem remained largely a theoretical curiosity. The reason was simple: for all but the most trivial problems, the mathematics required to calculate the posterior distribution were intractable.
+
+            This all changed with the advent of powerful computers. The "Bayesian revolution" began in the late 20th century with the development of **modern computational techniques** like **Markov Chain Monte Carlo (MCMC)**. These algorithms allow computers to approximate the posterior distribution through simulation, even for highly complex models that are impossible to solve analytically.
+
+            This computational power transformed Bayesian statistics from a niche philosophical viewpoint into one of the most powerful and flexible frameworks for data analysis, now widely used in fields from astrophysics to drug development and artificial intelligence.
+
+            ---
+            
+            #### Mathematical Basis
+
+            The relationship between the components is defined by **Bayes' Theorem**:
+            """)
+            st.latex(r"P(\theta | \text{Data}) = \frac{P(\text{Data} | \theta) P(\theta)}{P(\text{Data})}")
+            st.markdown("""
+            In practice, the denominator, $P(\text{Data})$, is a normalizing constant that is often difficult to calculate. So, we often work with the proportional form, which captures the shape of the posterior distribution:
+            """)
+            st.latex(r"\underbrace{P(\theta | \text{Data})}_{\text{Posterior}} \propto \underbrace{P(\text{Data} | \theta)}_{\text{Likelihood}} \times \underbrace{P(\theta)}_{\text{Prior}}")
+            st.markdown("""
+            For binomial data (like pass/fail rates), the **Beta distribution** is a **conjugate prior** for the binomial likelihood. This is a special mathematical relationship that makes the calculation simple. It means that if you start with a Beta prior and get binomial data, your posterior will also be a Beta distribution.
+            - If Prior is Beta($\\alpha, \\beta$) and Data is $k$ successes in $n$ trials:
+            - The Posterior is Beta($\\alpha + k, \\beta + n - k$).
+            """)
             
 elif "Confidence Interval Concept" in method_key:
     st.markdown("""
-    **Purpose:** To understand the fundamental concept of frequentist confidence intervals and how sample size directly impacts the precision of our estimates.
+    **Purpose:** To understand the fundamental concept and correct interpretation of frequentist confidence intervals.
     
     **Definition:** A confidence interval (CI) is a range of estimates for an unknown population parameter, calculated from sample data. Its width reflects the uncertainty of the estimate.
     
@@ -1953,9 +2158,34 @@ elif "Confidence Interval Concept" in method_key:
             st.error("🔴 **Incorrect:** 'There is a 95% probability that the true mean is in this interval.'")
             st.success("🟢 **Correct:** 'We are 95% confident that this interval contains the true mean.' This is shorthand for: 'This interval was constructed using a procedure that, in the long run, captures the true mean 95% of the time.'")
         with tab3:
-            st.markdown("**Origin:** The concept of confidence intervals was introduced by Polish mathematician Jerzy Neyman in the 1930s.")
-            st.markdown("**Mathematical Basis:** The general form is:")
-            st.latex(r"\text{CI} = \text{Point Estimate} \pm (\text{Critical Value}) \times (\text{Standard Error})")
-            st.markdown("For the mean with an unknown population standard deviation (the most common case), this becomes:")
+            st.markdown("""
+            #### Origin and Development
+
+            The concept of **confidence intervals** was introduced by the brilliant Polish mathematician and statistician **Jerzy Neyman** in a landmark 1937 paper. At the time, the field of statistics was dominated by a fierce debate between the Bayesian approach and the "fiducial inference" approach of Sir Ronald A. Fisher.
+
+            Neyman sought a third way. He wanted a method that was rigorously frequentist—meaning its properties could be defined by long-run frequencies of repeated experiments—but that also provided a practical, intuitive range of plausible values for a parameter.
+
+            His solution was the confidence interval. It was a revolutionary idea: instead of trying to make a probabilistic statement about the fixed, unknown parameter, Neyman made a probabilistic statement about the *procedure* used to create the interval. He proved that one could construct an interval in such a way that, over many repeated experiments, a certain percentage (e.g., 95%) of those intervals would capture the true parameter.
+
+            This elegant and practical solution was a huge success. The Neyman-Pearson framework, which includes both confidence intervals and hypothesis testing, quickly became the dominant paradigm in applied statistics and remains the foundation of statistical inference in most scientific fields today.
+
+            ---
+            
+            #### Mathematical Basis
+
+            The general form of a two-sided confidence interval is:
+            """)
+            st.latex(r"\text{CI} = \text{Point Estimate} \pm (\text{Margin of Error})")
+            st.markdown("""
+            Where the Margin of Error is defined as:
+            """)
+            st.latex(r"(\text{Critical Value}) \times (\text{Standard Error of the Point Estimate})")
+            st.markdown("""
+            - **Point Estimate:** Our best guess for the parameter from our sample (e.g., the sample mean, $\\bar{x}$).
+            - **Standard Error:** The standard deviation of the sampling distribution of the point estimate. For the mean, it's $\frac{s}{\sqrt{n}}$.
+            - **Critical Value:** A value from a probability distribution (like the t-distribution or Z-distribution) that corresponds to the desired level of confidence. For a 95% CI, it's the value that cuts off the top and bottom 2.5% of the distribution.
+
+            For the mean of a population with an unknown standard deviation (the most common case), this becomes:
+            """)
             st.latex(r"\bar{x} \pm t_{\alpha/2, n-1} \frac{s}{\sqrt{n}}")
 
