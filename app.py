@@ -73,7 +73,6 @@ def plot_method_comparison():
     np.random.seed(42); x = np.linspace(20, 150, 50); y = 0.98 * x + 1.5 + np.random.normal(0, 2.5, 50); delta = np.var(y, ddof=1) / np.var(x, ddof=1); x_mean, y_mean = np.mean(x), np.mean(y); Sxx = np.sum((x-x_mean)**2); Sxy = np.sum((x-x_mean)*(y-y_mean)); beta1_deming = (np.sum((y-y_mean)**2) - delta*Sxx + np.sqrt((np.sum((y-y_mean)**2) - delta*Sxx)**2 + 4*delta*Sxy**2)) / (2*Sxy); beta0_deming = y_mean - beta1_deming*x_mean; diff = y - x; mean_diff = np.mean(diff); upper_loa = mean_diff + 1.96*np.std(diff,ddof=1); lower_loa = mean_diff - 1.96*np.std(diff,ddof=1)
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Deming Regression", "Bland-Altman Agreement Plot")); fig.add_trace(go.Scatter(x=x, y=y, mode='markers', name='Sample Results'), row=1, col=1); fig.add_trace(go.Scatter(x=x, y=beta0_deming + beta1_deming*x, mode='lines', name='Deming Fit'), row=1, col=1); fig.add_trace(go.Scatter(x=[0, 160], y=[0, 160], mode='lines', name='Line of Identity', line=dict(dash='dash', color='black')), row=1, col=1); fig.add_trace(go.Scatter(x=(x+y)/2, y=diff, mode='markers', name='Difference', marker_color='purple'), row=1, col=2); fig.add_hline(y=mean_diff, line_color="red", annotation_text=f"Mean Bias={mean_diff:.2f}", row=1, col=2); fig.add_hline(y=upper_loa, line_dash="dash", line_color="blue", annotation_text=f"Upper LoA={upper_loa:.2f}", row=1, col=2); fig.add_hline(y=lower_loa, line_dash="dash", line_color="blue", annotation_text=f"Lower LoA={lower_loa:.2f}", row=1, col=2); fig.update_layout(title_text='Method Comparison: R&D Lab vs QC Lab', showlegend=True, height=600); fig.update_xaxes(title_text="R&D Lab (Reference)", row=1, col=1); fig.update_yaxes(title_text="QC Lab (Test)", row=1, col=1); fig.update_xaxes(title_text="Average of Methods", row=1, col=2); fig.update_yaxes(title_text="Difference (QC - R&D)", row=1, col=2); return fig, beta1_deming, beta0_deming, mean_diff, upper_loa, lower_loa
 
-# Replace the old plot_robustness_rsm function with this one.
 def plot_robustness_rsm():
     # --- Data Generation ---
     np.random.seed(42)
@@ -94,11 +93,8 @@ def plot_robustness_rsm():
     
     effect_data = pd.DataFrame({'Effect': effects.index, 'Value': effects.values, 'p_value': p_values})
     effect_data['color'] = np.where(effect_data['p_value'] < 0.05, 'salmon', 'skyblue') # Color by significance
-    # T-value for significance line (example, typically from a t-distribution)
-    t_crit = stats.t.ppf(1 - 0.05 / 2, df=screening_model.df_resid)
     # A simplified significance threshold for visual effect
     significance_threshold = np.abs(effects.values).mean() * 1.5 
-
 
     fig_pareto = px.bar(
         effect_data, 
@@ -177,7 +173,8 @@ def plot_robustness_rsm():
     fig_surface.add_trace(go.Scatter3d(
         x=[opt_temp], y=[opt_ph], z=[opt_response],
         mode='markers',
-        marker=dict(color='yellow', size=10, symbol='star'),
+        # CORRECTED LINE: Changed symbol from 'star' to 'diamond'
+        marker=dict(color='yellow', size=10, symbol='diamond'),
         name='Optimal Point'
     ))
     fig_surface.update_layout(
