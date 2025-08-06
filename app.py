@@ -192,9 +192,87 @@ def plot_robustness_rsm():
     return fig_pareto, fig_contour, fig_surface, effects
     
 def plot_shewhart():
-    np.random.seed(42); in_control = np.random.normal(100.0, 2.0, 15); reagent_shift = np.random.normal(108.0, 2.0, 10); data = np.concatenate([in_control, reagent_shift]); x = np.arange(1, len(data) + 1); mean = np.mean(data[:15]); mr = np.abs(np.diff(data)); mr_mean = np.mean(mr[:14]); sigma_est = mr_mean / 1.128; UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est; out_of_control_I = np.where((data > UCL_I) | (data < LCL_I))[0]; UCL_MR = mr_mean * 3.267
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("I-Chart: Monitors Accuracy (Bias)", "MR-Chart: Monitors Precision (Variability)"), vertical_spacing=0.1); fig.add_trace(go.Scatter(x=x, y=data, mode='lines+markers', name='Control Value'), row=1, col=1); fig.add_trace(go.Scatter(x=x[out_of_control_I], y=data[out_of_control_I], mode='markers', marker=dict(color='red', size=12), name='Signal'), row=1, col=1); fig.add_hline(y=mean, line_dash="dash", line_color="black", row=1, col=1); fig.add_hline(y=UCL_I, line_color="red", row=1, col=1); fig.add_hline(y=LCL_I, line_color="red", row=1, col=1); fig.add_vrect(x0=15.5, x1=25.5, fillcolor="orange", opacity=0.2, layer="below", line_width=0, name="New Lot", row=1, col=1); fig.add_trace(go.Scatter(x=x[1:], y=mr, mode='lines+markers', name='Moving Range', marker_color='teal'), row=2, col=1); fig.add_hline(y=mr_mean, line_dash="dash", line_color="black", row=2, col=1); fig.add_hline(y=UCL_MR, line_color="red", row=2, col=1); fig.update_layout(title_text='Process Stability Monitoring: Shewhart I-MR Chart', height=700, showlegend=False); fig.update_yaxes(title_text="Concentration (ng/mL)", row=1, col=1); fig.update_yaxes(title_text="Range (ng/mL)", row=2, col=1); fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1); return fig
+    # --- Data Generation ---
+    np.random.seed(42)
+    in_control_data = np.random.normal(loc=100.0, scale=2.0, size=15)
+    reagent_shift_data = np.random.normal(loc=108.0, scale=2.0, size=10)
+    data = np.concatenate([in_control_data, reagent_shift_data])
+    x = np.arange(1, len(data) + 1)
 
+    # --- Calculations ---
+    mean = np.mean(data[:15])
+    mr = np.abs(np.diff(data))
+    mr_mean = np.mean(mr[:14])
+    sigma_est = mr_mean / 1.128
+    UCL_I, LCL_I = mean + 3 * sigma_est, mean - 3 * sigma_est
+    UCL_MR = mr_mean * 3.267
+    
+    # Identify in-control and out-of-control points
+    out_of_control_I_idx = np.where((data > UCL_I) | (data < LCL_I))[0]
+    in_control_I_idx = np.setdiff1d(np.arange(len(data)), out_of_control_I_idx)
+
+    # --- Figure Creation ---
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True, 
+        subplot_titles=("<b>I-Chart: Monitors Accuracy (Bias)</b>", "<b>MR-Chart: Monitors Precision (Variability)</b>"), 
+        vertical_spacing=0.1, row_heights=[0.7, 0.3]
+    )
+
+    # --- I-Chart Construction ---
+    # Add Shaded Zones for context
+    for i, color in zip([1, 2, 3], ['#a5d6a7', '#fff59d', '#ef9a9a']): # Green, Yellow, Red
+        fig.add_hrect(y0=mean - i*sigma_est, y1=mean + i*sigma_est, fillcolor=color, opacity=0.3, layer="below", line_width=0, row=1, col=1)
+    
+    # Add Center and Control Lines with annotations
+    fig.add_hline(y=mean, line=dict(dash='dash', color='black'), annotation_text=f"Mean={mean:.1f}", row=1, col=1)
+    fig.add_hline(y=UCL_I, line=dict(color='red'), annotation_text=f"UCL={UCL_I:.1f}", row=1, col=1)
+    fig.add_hline(y=LCL_I, line=dict(color='red'), annotation_text=f"LCL={LCL_I:.1f}", row=1, col=1)
+
+    # Plot In-Control Data
+    fig.add_trace(go.Scatter(
+        x=x[in_control_I_idx], y=data[in_control_I_idx], 
+        mode='lines+markers', name='In Control',
+        line=dict(color='royalblue'),
+        hovertemplate="Run %{x}<br>Value: %{y:.2f}<br>Status: In Control<extra></extra>"
+    ), row=1, col=1)
+
+    # Plot Out-of-Control Data
+    fig.add_trace(go.Scatter(
+        x=x[out_of_control_I_idx], y=data[out_of_control_I_idx], 
+        mode='markers', name='Out of Control',
+        marker=dict(color='red', size=12, symbol='x-thin', line=dict(width=2)),
+        hovertemplate="Run %{x}<br>Value: %{y:.2f}<br>Status: Out of Control<extra></extra>"
+    ), row=1, col=1)
+    
+    # Add annotations for violations
+    for idx in out_of_control_I_idx:
+        fig.add_annotation(x=x[idx], y=data[idx], text="Rule 1 Violation", showarrow=True, arrowhead=2, ax=20, ay=-40, row=1, col=1)
+        
+    # Highlight the process shift event
+    fig.add_vrect(x0=15.5, x1=25.5, fillcolor="rgba(255,165,0,0.2)", layer="below", line_width=0, 
+                  annotation_text="New Reagent Lot", annotation_position="top left", row=1, col=1)
+
+    # --- MR-Chart Construction ---
+    fig.add_trace(go.Scatter(
+        x=x[1:], y=mr, mode='lines+markers', name='Moving Range', 
+        line=dict(color='teal'),
+        hovertemplate="Range (Run %{x}-%{x_prev})<br>Value: %{y:.2f}<extra></extra>".replace('%{x_prev}', str(list(x[:-1])))
+    ), row=2, col=1)
+    fig.add_hline(y=mr_mean, line=dict(dash='dash', color='black'), annotation_text=f"Mean={mr_mean:.1f}", row=2, col=1)
+    fig.add_hline(y=UCL_MR, line=dict(color='red'), annotation_text=f"UCL={UCL_MR:.1f}", row=2, col=1)
+
+    # --- Final Layout Updates ---
+    fig.update_layout(
+        title_text='<b>Process Stability Monitoring: Shewhart I-MR Chart</b>', 
+        height=800, 
+        showlegend=False,
+        margin=dict(t=100)
+    )
+    fig.update_yaxes(title_text="Concentration (ng/mL)", row=1, col=1)
+    fig.update_yaxes(title_text="Range (ng/mL)", row=2, col=1)
+    fig.update_xaxes(title_text="Analytical Run Number", row=2, col=1)
+    
+    return fig
 def plot_ewma_cusum(chart_type, lmbda, k_sigma, H_sigma):
     np.random.seed(101); data = np.concatenate([np.random.normal(50, 2, 25), np.random.normal(52.5, 2, 15)]); target = np.mean(data[:25]); sigma = np.std(data[:25], ddof=1); x_axis = np.arange(1, len(data)+1); fig = go.Figure()
     if chart_type == 'EWMA':
@@ -456,22 +534,40 @@ elif "Assay Robustness (DOE/RSM)" in method_key:
             st.markdown("**Mathematical Basis:** RSM fits a second-order (quadratic) model to the experimental data, which can capture curvature in the response:")
             st.latex("y = \\beta_0 + \\sum \\beta_i x_i + \\sum \\beta_{ii} x_i^2 + \\sum \\beta_{ij} x_i x_j + \\epsilon")
             
+# Replace the ENTIRE 'elif "Process Stability" in method_key:' block with this one.
+
 elif "Process Stability" in method_key:
-    # ... (Content for this method)
-    st.markdown("**Purpose:** To demonstrate that the assay can be run in a stable and predictable manner at the receiving site. **Application:** A process must be stable (in statistical control) before its capability can be assessed. This chart separates common cause from special cause variation.")
+    st.markdown("""
+    **Purpose:** To establish if a process is in a state of statistical control, meaning its variation is stable, consistent, and predictable over time.
+    
+    **Definition:** A process is "in control" when its variation is due only to random, inherent "common causes." An "out of control" process exhibits "special cause" variation from specific, identifiable events.
+    
+    **Application:** This is the foundational step of process monitoring and a **strict prerequisite for Process Capability analysis**. It is the Hero's first battle: to prove that the Villain of Variation has been tamed and is behaving predictably. An out-of-control process is a wild, untamed beast; a capable analysis cannot be performed until it is brought into a state of control.
+    """)
     col1, col2 = st.columns([0.65, 0.35]);
-    with col1: st.plotly_chart(plot_shewhart(), use_container_width=True)
+    with col1:
+        st.plotly_chart(plot_shewhart(), use_container_width=True)
     with col2:
         st.subheader("Analysis & Interpretation")
         tab1, tab2, tab3 = st.tabs(["💡 Key Insights", "✅ Acceptance Rules", "📖 Method Theory"])
         with tab1:
-            st.metric(label="📈 KPI: Process Stability", value="Signal Detected", delta="Action Required", delta_color="inverse"); st.markdown("- **I-Chart:** Monitors the process center (accuracy)."); st.markdown("- **MR-Chart:** Monitors run-to-run variability (precision).")
-            st.markdown("**The Bottom Line:** These charts are the heartbeat of your process. A stable heartbeat means the process is healthy and predictable; an erratic one means it needs immediate medical attention.")
+            st.metric(label="📈 KPI: Process Stability", value="Signal Detected", delta="Action Required", delta_color="inverse")
+            st.markdown("- **I-Chart (top):** Monitors the process center (accuracy). The shaded zones represent the 1, 2, and 3-sigma limits. Points colored red and marked with an 'X' are out-of-control signals.")
+            st.markdown("- **MR-Chart (bottom):** Monitors the short-term, run-to-run variability (precision). An out-of-control signal here would indicate the process has become inconsistent.")
+            st.markdown("**The Bottom Line:** These charts are the heartbeat of your process. This chart shows a stable heartbeat for the first 15 runs, after which a new reagent lot caused a special cause variation, driving the process out of control. This must be fixed before proceeding.")
         with tab2:
-            st.markdown("- Process is stable when **at least 20-25 consecutive points on both charts show no out-of-control signals**.")
+            st.markdown("- A process is considered stable and ready for the next validation step only when **at least 20-25 consecutive points on both the I-chart and MR-chart show no out-of-control signals** according to the chosen rule set (e.g., Nelson, Westgard).")
         with tab3:
-            st.markdown("**Origin:** Developed by Walter A. Shewhart (1920s)."); st.markdown("**Mathematical Basis:** Estimate $\\hat{\sigma} = \\overline{MR}/d_2$. I-Chart limits are $\\bar{x} \\pm 3\\hat{\sigma}$. MR-Chart UCL is $D_4 \\overline{MR}$.")
-
+            st.markdown("**Origin:** Developed by Walter A. Shewhart at Bell Labs in the 1920s, these charts are the foundation of modern Statistical Process Control (SPC).")
+            st.markdown("**Mathematical Basis:** The key is estimating the process standard deviation ($\hat{\sigma}$) from the average moving range ($\overline{MR}$).")
+            st.latex(r"\hat{\sigma} = \frac{\overline{MR}}{d_2}")
+            st.markdown("Where $d_2$ is a control chart constant (1.128 for a moving range of size 2).")
+            st.markdown("**I-Chart Limits:**")
+            st.latex(r"UCL/LCL = \bar{x} \pm 3\hat{\sigma}")
+            st.markdown("**MR-Chart Limits:**")
+            st.latex(r"UCL = D_4 \overline{MR}")
+            st.markdown("Where $D_4$ is another constant (3.267 for a moving range of size 2).")
+            
 elif "Small Shift Detection" in method_key:
     # ... (Content for this method)
     st.markdown("**Purpose:** To implement sensitive charts that can detect small, systematic drifts or shifts in assay performance that a Shewhart chart might miss. **Application:** Long-term monitoring of controls to detect gradual reagent degradation or instrument drift.")
