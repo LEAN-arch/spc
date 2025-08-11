@@ -32,34 +32,7 @@ st.markdown("""
 # HELPER & PLOTTING FUNCTIONS
 # ==============================================================================
 # All plotting and helper functions are defined here.
-def render_introduction_content():
-    """Renders the complete, all-in-one introduction and framework dashboard."""
-    st.title("🛠️ Biotech V&V Analytics Toolkit")
-    st.markdown("### An Interactive Guide to Assay Validation, Tech Transfer, and Lifecycle Management")
 
-    # --- NEW, PROFESSIONAL HEADER SECTION ---
-    # The columns are now correctly defined before being used.
-    col1, col2 = st.columns([1, 2]) 
-
-    with col1:
-        # Use simple HTML for styling and line breaks
-        st.markdown(
-            "<p style='color: grey; margin-bottom: 0;'>Developed by<br><b>Jose Bautista, MSc, LSSBB, PMP</b></p>", 
-            unsafe_allow_html=True
-        )
-
-    with col2:
-        # Right-align the contact information
-        st.markdown(
-            """
-            <div style='text-align: right; color: grey; margin-bottom: 0;'>
-            <b>Contact Information</b><br>
-            📧 jbautistads@gmail.com<br>
-            🔗 linkedin.com/in/josebautista
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
     # --- END OF NEW HEADER SECTION ---
 
 def plot_v_model():
@@ -1322,7 +1295,30 @@ def plot_ci_concept(n=30):
 # ==============================================================================
 st.title("🛠️ An Interactive Guide to V&V and Tech Transfer Using Tools from Statistics and Machine Learning.")
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that help support a robust V&V, tech transfer, and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
+ # --- NEW, PROFESSIONAL HEADER SECTION ---
+    # The columns are now correctly defined before being used.
+    col1, col2 = st.columns([1, 2]) 
 
+    with col1:
+        # Use simple HTML for styling and line breaks
+        st.markdown(
+            "<p style='color: grey; margin-bottom: 0;'>Developed by<br><b>Jose Bautista, MSc, LSSBB, PMP</b></p>", 
+            unsafe_allow_html=True
+        )
+
+    with col2:
+        # Right-align the contact information
+        st.markdown(
+            """
+            <div style='text-align: right; color: grey; margin-bottom: 0;'>
+            <b>Contact Information</b><br>
+            📧 jbautistads@gmail.com<br>
+            🔗 linkedin.com/in/josebautista
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    # --- END OF NEW HEADER SECTION ---
 st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics, Machine Learning, and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
 st.divider()
