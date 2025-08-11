@@ -1297,16 +1297,15 @@ st.title("🛠️ An Interactive Guide to V&V and Tech Transfer Using Tools from
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that help support a robust V&V, tech transfer, and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
  # --- NEW, PROFESSIONAL HEADER SECTION ---
     # The columns are now correctly defined before being used.
-    col1, col2 = st.columns([1, 2]) 
+col1, col2 = st.columns([1, 2]) 
 
-    with col1:
+with col1:
         # Use simple HTML for styling and line breaks
         st.markdown(
             "<p style='color: grey; margin-bottom: 0;'>Developed by<br><b>Jose Bautista, MSc, LSSBB, PMP</b></p>", 
             unsafe_allow_html=True
         )
-
-    with col2:
+with col2:
         # Right-align the contact information
         st.markdown(
             """
