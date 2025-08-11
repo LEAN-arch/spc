@@ -1297,7 +1297,7 @@ st.title("🛠️ An Interactive Guide to V&V and Tech Transfer Using Tools from
 st.markdown("Welcome to this interactive guide. It's a collection of tools to help explore statistical and ML methods that help support a robust V&V, tech transfer, and lifecycle management plan, bridging classical SPC with modern ML/AI concepts.")
 # --- NEW, CLEAN & STACKED HEADER SECTION ---
     # We use a single markdown block to control the layout precisely.
-    st.markdown(
+st.markdown(
         """
         <p style='color: grey; margin-bottom: 0;'>Developed by<br><b>Jose Bautista, MSc, LSSBB, PMP</b></p>
         
@@ -1309,8 +1309,7 @@ st.markdown("Welcome to this interactive guide. It's a collection of tools to he
         """,
         unsafe_allow_html=True
     )
-    st.divider()
-    # --- END OF NEW HEADER SECTION ---
+st.divider()
     # --- END OF NEW HEADER SECTION ---
 st.plotly_chart(create_conceptual_map_plotly(), use_container_width=True)
 st.markdown("This map illustrates how foundational **Academic Disciplines** like Statistics, Machine Learning, and Industrial Engineering give rise to **Core Domains** such as Statistical Process Control (SPC) and Statistical Inference. These domains, in turn, provide the **Sub-Domains & Concepts** that are the basis for the **Specific Tools & Applications** you can explore in this guide. Use the sidebar to navigate through these practical applications.")
