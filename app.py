@@ -27,14 +27,14 @@ st.markdown("""
     [data-testid="stMetric"] { background-color: #FFFFFF; border: 1px solid #CCCCCC; padding: 10px; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
-    with col1:
+with col1:
         # Use simple HTML for styling and line breaks
         st.markdown(
             "<p style='color: grey; margin-bottom: 0;'>Developed by<br><b>Jose Bautista, MSc, LSSBB, PMP</b></p>", 
             unsafe_allow_html=True
         )
 
-    with col2:
+with col2:
         # Right-align the contact information
         st.markdown(
             """
