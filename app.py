@@ -27,14 +27,28 @@ st.markdown("""
     [data-testid="stMetric"] { background-color: #FFFFFF; border: 1px solid #CCCCCC; padding: 10px; border-radius: 5px; }
 </style>
 """, unsafe_allow_html=True)
-with col1:
+
+# ==============================================================================
+# HELPER & PLOTTING FUNCTIONS
+# ==============================================================================
+# All plotting and helper functions are defined here.
+def render_introduction_content():
+    """Renders the complete, all-in-one introduction and framework dashboard."""
+    st.title("🛠️ Biotech V&V Analytics Toolkit")
+    st.markdown("### An Interactive Guide to Assay Validation, Tech Transfer, and Lifecycle Management")
+
+    # --- NEW, PROFESSIONAL HEADER SECTION ---
+    # The columns are now correctly defined before being used.
+    col1, col2 = st.columns([1, 2]) 
+
+    with col1:
         # Use simple HTML for styling and line breaks
         st.markdown(
             "<p style='color: grey; margin-bottom: 0;'>Developed by<br><b>Jose Bautista, MSc, LSSBB, PMP</b></p>", 
             unsafe_allow_html=True
         )
 
-with col2:
+    with col2:
         # Right-align the contact information
         st.markdown(
             """
@@ -46,10 +60,8 @@ with col2:
             """,
             unsafe_allow_html=True
         )
-# ==============================================================================
-# HELPER & PLOTTING FUNCTIONS
-# ==============================================================================
-# All plotting and helper functions are defined here.
+    # --- END OF NEW HEADER SECTION ---
+
 def plot_v_model():
     """Generates a professional, interactive V&V Model diagram using Plotly."""
     fig = go.Figure()
