@@ -1305,7 +1305,7 @@ with col1:
             "<p style='color: grey; margin-bottom: 0;'>Developed by<br><b>Jose Bautista, MSc, LSSBB, PMP</b></p>", 
             unsafe_allow_html=True
         )
-with col2:
+
         # Right-align the contact information
         st.markdown(
             """
